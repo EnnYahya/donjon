@@ -28,11 +28,13 @@
     <div id="gKeys"></div>
     <div id="buffs"></div>
   </div>
+  <div id="compass" class="hidden"><div id="compassArrow">&#9650;</div><div id="compassDist"></div><small>stairs</small></div>
   <div id="prompt"></div>
   <div id="toasts"></div>
   <div id="bossBar" class="hidden"><div id="bossName"></div><div class="bar boss"><i id="bossFill"></i></div></div>
   <div id="banner" class="hidden"><h1 id="bnTitle"></h1><p id="bnSub"></p></div>
-  <div id="hint">Q heal · R refuel · T torch · Space roll · Tab pack</div>
+  <div id="hint">Q heal · R refuel · T torch · Space roll · Tab pack · M map · H stairs hint</div>
+  <div id="mapView" class="hidden"><canvas id="mapCanvas" width="420" height="420"></canvas><small>M to close</small></div>
 </div>
 
 <!-- Main menu -->
@@ -72,6 +74,8 @@
     <label>Mouse sensitivity <input id="sSens" type="range" min="0.2" max="3" step="0.05"><em id="vSens"></em></label>
     <label>Volume <input id="sVol" type="range" min="0" max="1" step="0.02"><em id="vVol"></em></label>
     <label>Turn smoothing <input id="sSmooth" type="range" min="0" max="1" step="0.05"><em id="vSmooth"></em></label>
+    <label>Stairs compass
+      <select id="sCompass"><option value="auto">Appears when lost</option><option value="always">Always on</option><option value="off">Off</option></select></label>
     <label>Brightness <input id="sBri" type="range" min="0.6" max="2" step="0.05"><em id="vBri"></em></label>
     <label>Graphics quality
       <select id="sQual"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></label>
@@ -102,6 +106,8 @@
           <tr><td>Q</td><td>Quick heal</td></tr>
           <tr><td>R</td><td>Refuel lantern with oil</td></tr>
           <tr><td>T</td><td>Light a pitch torch</td></tr>
+          <tr><td>M</td><td>Map of explored areas</td></tr>
+          <tr><td>H</td><td>Sense the stairs (purple arrow)</td></tr>
           <tr><td>Tab</td><td>Inventory</td></tr>
           <tr><td>Esc</td><td>Pause</td></tr>
         </table>
@@ -109,7 +115,7 @@
       <div>
         <h3>Survive</h3>
         <ul class="left small">
-          <li>Find the stairs on each floor and descend. 50 floors, then the Elden Ring.</li>
+          <li>Find the <b style="color:#c070ff">purple glowing stairs</b> on each floor and descend. 50 floors, then the Elden Ring.</li>
           <li>Monsters hunt by <b>sight and sound</b>. Walking is quiet, sprinting and fighting are loud.</li>
           <li>Hit an unaware enemy for a <b>backstab</b> (daggers are best).</li>
           <li>Your lantern burns down. Keep oil, or find torches.</li>
