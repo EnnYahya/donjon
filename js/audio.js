@@ -112,6 +112,13 @@ export class AudioSys {
       case 'altar': this.tone({ type: 'sine', f0: 80, f1: 160, dur: 1.2, vol: 0.2, echo: true }); this.tone({ type: 'sine', f0: 240, dur: 1.2, vol: 0.06, delay: 0.1 }); break;
       case 'ring': for (const [i, f] of [440, 554, 659, 880, 1109].entries()) this.tone({ type: 'sine', f0: f, dur: 5, vol: 0.13, att: 0.8 + i * 0.3, vib: 5, echo: true }); break;
       case 'teleport': this.tone({ type: 'sawtooth', f0: 80, f1: 1600, dur: 3, vol: 0.12, att: 2, lp: 3000, echo: true }); this.noise({ type: 'bandpass', f: 400, f1: 6000, q: 3, dur: 3, vol: 0.12, att: 2 }); break;
+      case 'whisper': for (let i = 0; i < 4; i++) this.noise({ type: 'bandpass', f: 1800 + Math.random() * 1800, f1: 1200 + Math.random() * 1500, q: 9, dur: 0.35 + Math.random() * 0.3, vol: 0.2 * vol, att: 0.12, delay: i * 0.28, pos: p, echo: true }); this.tone({ type: 'sine', f0: 190, f1: 140, dur: 1.2, vol: 0.05, att: 0.5, pos: p, vib: 6 }); break;
+      case 'scream': this.tone({ type: 'sawtooth', f0: 520, f1: 1500, dur: 0.9, vol: 0.34, att: 0.03, vib: 40, lp: 5000, echo: true }); this.tone({ type: 'square', f0: 700, f1: 1900, dur: 0.8, vol: 0.14, att: 0.03, vib: 33 }); this.noise({ type: 'highpass', f: 2500, dur: 0.9, vol: 0.3 }); this.tone({ type: 'sine', f0: 60, f1: 30, dur: 0.8, vol: 0.4 }); break;
+      case 'sting': for (const f of [233, 247, 311, 466]) this.tone({ type: 'sawtooth', f0: f, f1: f * 0.9, dur: 0.9, vol: 0.16, att: 0.01, lp: 2500, echo: true }); this.noise({ type: 'lowpass', f: 900, dur: 0.5, vol: 0.4 }); this.tone({ type: 'sine', f0: 55, f1: 28, dur: 0.9, vol: 0.45 }); break;
+      case 'slam': this.noise({ type: 'lowpass', f: 500, f1: 120, dur: 0.7, vol: 0.55 * vol, pos: p, echo: true }); this.tone({ type: 'sine', f0: 70, f1: 28, dur: 0.8, vol: 0.5 * vol, pos: p }); break;
+      case 'knock': for (let i = 0; i < 3; i++) { this.noise({ type: 'lowpass', f: 400, dur: 0.12, vol: 0.4, delay: i * 0.32, pos: p }); this.tone({ type: 'sine', f0: 130, f1: 70, dur: 0.12, vol: 0.35, delay: i * 0.32, pos: p }); } break;
+      case 'scratch': for (let i = 0; i < 5; i++) this.noise({ type: 'bandpass', f: 3000 + i * 300, q: 3, dur: 0.22, vol: 0.14, delay: i * 0.12, pos: p }); break;
+      case 'moan': this.tone({ type: 'sawtooth', f0: 130, f1: 85, dur: 2.4, vol: 0.2, att: 0.8, lp: 500, vib: 5, pos: p, echo: true }); this.tone({ type: 'sine', f0: 262, f1: 170, dur: 2.4, vol: 0.06, att: 0.9, pos: p, vib: 7 }); break;
       case 'secret': this.noise({ type: 'bandpass', f: 1800, dur: 0.5, vol: 0.12, pos: p }); break;
     }
   }

@@ -5,7 +5,8 @@ import { TS, T, scaling, tierIndex } from './config.js';
 import { Pathfinder, losClear } from './pathfinding.js';
 import { RNG, hash } from './rng.js';
 import { rollItem, makeStack } from './items.js';
-import { roundedBox } from './geometry.js';
+import { roundedBox, makeChestParts } from './geometry.js';
+import { getTex } from './textures.js';
 
 export const DEFS = {
   hollow:   { name: 'The Hollow', hp: 60, dmg: 14, patrol: 1.2, chase: 2.7, sight: 14, hear: 1.0, range: 1.9, wind: 0.8, rec: 0.6, cd: 1.3, r: 0.42, h: 1.8, fov: 0.3, drop: 0.2 },
@@ -67,24 +68,23 @@ function humanoid(o, mats) {
   return { g, legL, legR, torso, armL, armR, head, eyes, eyeMat };
 }
 
-function mimicBody(mats) {
-  const g = new THREE.Group();
-  const mk = (c) => { const m = new THREE.MeshLambertMaterial({ color: c, emissive: 0x000000 }); mats.push(m); return m; };
-  const wood = mk(0x5a3d22), metal = mk(0x3a3630), tooth = mk(0xe8e0c8), tongue = mk(0x8a1a22);
-  const b = (w, h, d, m, x, y, z, par) => { const q = new THREE.Mesh(roundedBox(w, h, d, Math.min(w, h, d) * 0.3, 2), m); q.position.set(x, y, z); (par || g).add(q); return q; };
-  b(1, 0.5, 0.62, wood, 0, 0.35, 0); b(0.98, 0.05, 0.1, metal, 0, 0.35, 0.2);
-  b(0.7, 0.04, 0.4, tongue, 0, 0.6, 0.05);
-  for (let i = 0; i < 7; i++) { const t = b(0.07, 0.14, 0.05, tooth, -0.42 + i * 0.14, 0.64, 0.29); t.rotation.x = 0.1; }
-  for (const [x, z] of [[-0.4, 0.22], [0.4, 0.22], [-0.4, -0.22], [0.4, -0.22]]) b(0.12, 0.2, 0.12, metal, x, 0.1, z);
-  const lid = new THREE.Group(); lid.position.set(0, 0.6, -0.31); g.add(lid);
-  b(1, 0.22, 0.64, wood, 0, 0.11, 0.31, lid); b(0.12, 0.26, 0.68, metal, -0.3, 0.11, 0.31, lid); b(0.12, 0.26, 0.68, metal, 0.3, 0.11, 0.31, lid);
-  for (let i = 0; i < 7; i++) b(0.07, 0.14, 0.05, tooth, -0.42 + i * 0.14, -0.04, 0.59, lid);
-  const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff3010 });
-  for (const x of [-0.25, 0.25]) b(0.08, 0.05, 0.04, eyeMat, x, 0.12, 0.64, lid);
+function mimicBody(mats, world) {
+  // Built from the very same parts and materials as a real chest, so it cannot be told apart until it bites.
+  const wood = world.S(getTex('chest')), metal = new THREE.MeshLambertMaterial({ color: 0x3a3630 }), gold = new THREE.MeshLambertMaterial({ color: 0x8a6a20, emissive: 0x201400 });
+  const tooth = new THREE.MeshLambertMaterial({ color: 0xe8e0c8 }), eyeMat = new THREE.MeshBasicMaterial({ color: 0xff3010 });
+  mats.push(wood, metal, gold, tooth);
+  const { group: g, lid } = makeChestParts(wood, metal, gold);
+  const add = (geo, m, x, y, z, par) => { const q = new THREE.Mesh(geo, m); q.position.set(x, y, z); (par || g).add(q); return q; };
+  for (let i = 0; i < 7; i++) {
+    const x = -0.39 + i * 0.13;
+    add(new THREE.ConeGeometry(0.035, 0.1, 5), tooth, x, 0.55, 0.26);                                  // hidden under the closed lid
+    const t = add(new THREE.ConeGeometry(0.035, 0.1, 5), tooth, x, 0.1, 0.55, lid); t.rotation.x = Math.PI;
+  }
+  for (const x of [-0.2, 0.2]) add(new THREE.SphereGeometry(0.035, 8, 6), eyeMat, x, 0.12, 0.3, lid);
   return { g, lid };
 }
 
-function buildBody(type, floor, mats) {
+export function buildBody(type, floor, mats) {
   switch (type) {
     case 'hollow': return humanoid({ s: 1, skin: 0x8a8a78, cloth: 0x3a3228, hunch: 0.35, arm: 0.85, head: 'skull', eye: 0xff7030 }, mats);
     case 'stalker': return humanoid({ s: 1, h: 1.2, w: 0.8, skin: 0x16161a, cloth: 0x101014, hunch: 0.55, arm: 0.95, head: 'long', eye: 0xe8f0ff }, mats);
@@ -112,7 +112,7 @@ export class Monster {
     this.stepAcc = 0; this.flash = 0; this.phase = 0; this.lastAtk = ''; this.deadT = 0; this.stuckT = 0; this.sx = x; this.sz = z;
     this.fade = 1; this.shT = 4; this.introT = 0; this.vanishT = 0; this.warned = false; this.drops = o.drops || null;
     if (type === 'mimic') {
-      const m = mimicBody(this.mats); this.body = { g: m.g, lid: m.lid };
+      const m = mimicBody(this.mats, sys.world); this.body = { g: m.g, lid: m.lid };
     } else this.body = buildBody(type, sys.floor, this.mats);
     this.group = this.body.g; this.group.position.set(x, 0, z); this.group.rotation.y = this.yaw;
     sys.world.group.add(this.group);
@@ -335,10 +335,25 @@ export class Monster {
       if (kind === 'slam') this.sys.game.combat.addTelegraph(p.x, p.z, d.range * (this.type === 'final' ? 0.85 : 0.95), this.atk.wind + 0.05);
       this.sys.game.audio.voice(this.type, 'alert', this);
     } else {
-      this.atk = { kind: 'swing', t: 0, fired: false, wind: d.wind, rec: d.rec };
+      const pat = this.pickPattern(dist), p = this.sys.game.player;
+      const a = this.atk = { kind: pat.kind, t: 0, fired: false, wind: d.wind * (pat.windMul || 1), rec: d.rec, n: pat.n || 1, i: 0, hit: false, run: 0, dirx: 0, dirz: 0, R: pat.R || 2, tx: p.x, tz: p.z };
+      a.total = a.kind === 'flurry' ? a.wind + (a.n - 1) * 0.3 + a.rec : a.kind === 'lunge' ? a.wind + 0.3 + a.rec : a.wind + a.rec;
+      if (a.kind === 'smash') this.sys.game.combat.addTelegraph(a.tx, a.tz, a.R, a.wind + 0.05);
       this.sys.game.audio.voice(this.type, 'attack', this);
     }
     this.state = 'attack'; this.path = null;
+  }
+  // Each monster has its own way of killing you: read the wind-up, then roll, block or back off.
+  pickPattern(dist) {
+    const r = Math.random();
+    switch (this.type) {
+      case 'hollow': return r < 0.35 && dist > 1.2 ? { kind: 'lunge', windMul: 0.9 } : { kind: 'swing' };
+      case 'stalker': return r < 0.6 ? { kind: 'flurry', n: 3 } : { kind: 'lunge', windMul: 0.8 };
+      case 'blind': return r < 0.7 ? { kind: 'smash', R: 2.1 } : { kind: 'sweep', windMul: 0.9 };
+      case 'warden': return r < 0.45 ? { kind: 'smash', R: 2.5 } : r < 0.8 ? { kind: 'sweep', windMul: 1.1 } : { kind: 'swing' };
+      case 'mimic': return { kind: 'lunge', windMul: 0.9 };
+      default: return { kind: 'swing' };
+    }
   }
   pickBossAttack(dist) {
     const d = this.def, o = [];
@@ -348,13 +363,17 @@ export class Monster {
     const f = o.filter(x => x[0] !== this.lastAtk); const list = f.length ? f : o;
     return this.sys.rng.weighted(list, x => x[1])[0];
   }
-  meleeHit(game, range, dmgMul = 1, cone = 0.1) {
+  meleeHit(game, range, dmgMul = 1, cone = 0.1, knock = 5) {
     const p = game.player, dx = p.x - this.x, dz = p.z - this.z, d = Math.hypot(dx, dz);
     if (d - 0.35 > range) return false;
     const fx = Math.sin(this.yaw), fz = Math.cos(this.yaw);
     if ((dx * fx + dz * fz) / (d || 1) < cone) return false;
-    p.hurt(this.dmg * dmgMul, this, { by: this.def.name });
-    game.audio.play('hit', this); return true;
+    p.lastBlocked = false;
+    const dealt = p.hurt(this.dmg * dmgMul, this, { by: this.def.name });
+    game.audio.play('hit', this);
+    if (dealt > 0) { p.knock(this.x, this.z, knock); p.shake = Math.max(p.shake, 0.6); }
+    if (p.lastBlocked && !this.def.boss) { this.stagT = Math.max(this.stagT, 0.5); this.state = 'chase'; this.atk = null; this.cdT = this.def.cd * 0.5; game.ui.toast('Blocked!', '#9ac8e8'); }
+    return true;
   }
   updateAttack(dt, game, dist, los) {
     const a = this.atk, p = game.player, d = this.def; a.t += dt;
@@ -366,6 +385,32 @@ export class Monster {
         if (this.type === 'hollow' || this.type === 'stalker' || this.type === 'mimic') this.sys.world.move(this, Math.sin(this.yaw) * 0.7, Math.cos(this.yaw) * 0.7, d.r);
         this.meleeHit(game, d.range + 0.4, 1, 0.1);
         if (d.boss) { p.shake = Math.max(p.shake, 0.5); }
+      }
+    } else if (a.kind === 'lunge') {
+      if (a.t < a.wind) { this.faceTarget(p.x, p.z, dt, 8); a.dirx = Math.sin(this.yaw); a.dirz = Math.cos(this.yaw); }
+      else {
+        if (!a.fired) { a.fired = true; game.audio.play('swing'); }
+        if (a.run < 0.25) {
+          a.run += dt; this.sys.world.move(this, a.dirx * 10 * dt, a.dirz * 10 * dt, d.r);
+          if (!a.hit && this.meleeHit(game, d.range + 0.3, 1.15, 0, 6)) { a.hit = true; if (this.state !== 'attack') return; }
+        }
+      }
+    } else if (a.kind === 'flurry') {
+      if (a.t < a.wind) this.faceTarget(p.x, p.z, dt, 7);
+      else if (a.i < a.n && a.t >= a.wind + a.i * 0.3) {
+        a.i++; game.audio.play('swing'); this.faceTarget(p.x, p.z, 1, 99);
+        this.sys.world.move(this, Math.sin(this.yaw) * 0.5, Math.cos(this.yaw) * 0.5, d.r);
+        this.meleeHit(game, d.range + 0.4, 0.7, 0, 3); if (this.state !== 'attack') return;
+      }
+      if (a.t >= a.wind && a.i < a.n) this.faceTarget(p.x, p.z, dt, 6);
+    } else if (a.kind === 'sweep') {
+      if (a.t < a.wind * 0.7) this.faceTarget(p.x, p.z, dt, 5);
+      if (!a.fired && a.t >= a.wind) { a.fired = true; game.audio.play('swing'); this.meleeHit(game, d.range + 0.8, 1, -0.45, 7); if (this.state !== 'attack') return; }
+    } else if (a.kind === 'smash') {
+      if (!a.fired && a.t >= a.wind) {
+        a.fired = true; game.audio.play('shockwave', this); game.noise(this.x, this.z, 18); game.combat.addRing(a.tx, a.tz, a.R);
+        if (Math.hypot(p.x - this.x, p.z - this.z) < 14) p.shake = Math.max(p.shake, 0.8);
+        if (Math.hypot(p.x - a.tx, p.z - a.tz) < a.R) { p.lastBlocked = false; const dl = p.hurt(this.dmg * 1.2, this, { by: d.name }); if (dl > 0) p.knock(a.tx, a.tz, 7); }
       }
     } else if (a.kind === 'slam') {
       if (a.t < a.wind * 0.4) this.faceTarget(a.tx, a.tz, dt, 4);
@@ -396,7 +441,7 @@ export class Monster {
         game.audio.play('orb', this);
       }
     }
-    if (a.t >= a.wind + a.rec) { this.state = 'chase'; this.cdT = d.cd * (this.hp < this.maxHp * 0.5 && d.boss ? 0.65 : 1); this.atk = null; }
+    if (a.t >= (a.total || a.wind + a.rec)) { this.state = 'chase'; this.cdT = d.cd * (this.hp < this.maxHp * 0.5 && d.boss ? 0.65 : 1); this.atk = null; }
   }
 
   // ---- shadow
@@ -455,8 +500,11 @@ export class Monster {
     g.position.x = this.x; g.position.z = this.z; g.rotation.y = this.yaw;
     if (this.type === 'mimic') {
       const open = this.aware ? 0.25 + 0.35 * Math.abs(Math.sin(this.t * 9)) : 0;
-      b.lid.rotation.x = -open - (this.atk && this.atk.kind === 'swing' ? Math.min(1, this.atk.t / this.atk.wind) * 0.7 : 0);
-      g.position.y = moving ? Math.abs(Math.sin(this.phase * 2)) * 0.12 : 0; return;
+      const at = this.atk && this.state === 'attack' ? this.atk : null;
+      b.lid.rotation.x = -open - (at ? (at.t < at.wind ? at.t / at.wind * 0.9 : 0) : 0);
+      g.position.y = moving ? Math.abs(Math.sin(this.phase * 2)) * 0.12 : 0;
+      if (at && at.kind === 'lunge' && at.run > 0 && at.run < 0.26) g.position.y = 0.3 * Math.sin(Math.PI * at.run / 0.26);
+      return;
     }
     const amp = moving ? Math.min(1, speed / 2.2) * 0.8 : 0;
     b.legL.rotation.x = Math.sin(this.phase) * amp; b.legR.rotation.x = -Math.sin(this.phase) * amp;
@@ -468,7 +516,8 @@ export class Monster {
     if (this.state === 'intro') { ar = al = -2.4 + Math.sin(this.t * 3) * 0.1; }
     if (this.atk && this.state === 'attack') {
       const a = this.atk, k = Math.min(1, a.t / a.wind);
-      if (a.kind === 'swing' || a.kind === 'slam') { ar = a.t < a.wind ? -2.5 * k : -2.5 + 3.4 * Math.min(1, (a.t - a.wind) / 0.18); if (a.kind === 'slam') al = ar; b.torso.rotation.x += a.t < a.wind ? -0.35 * k : 0.4; }
+      if (a.kind === 'swing' || a.kind === 'slam' || a.kind === 'smash' || a.kind === 'lunge' || a.kind === 'sweep') { ar = a.t < a.wind ? -2.5 * k : -2.5 + 3.4 * Math.min(1, (a.t - a.wind) / 0.18); if (a.kind === 'slam' || a.kind === 'smash') al = ar; if (a.kind === 'sweep') al = -ar * 0.5; b.torso.rotation.x += a.t < a.wind ? -0.35 * k : (a.kind === 'lunge' ? 0.7 : 0.4); }
+      else if (a.kind === 'flurry') { if (a.t < a.wind) ar = al = -2.2 * k; else { const c = ((a.t - a.wind) % 0.3) / 0.3, s = -2.2 + 3.2 * Math.min(1, c * 3); if (a.i % 2) { ar = s; al = -1.2; } else { al = s; ar = -1.2; } } b.torso.rotation.x += 0.35; }
       else if (a.kind === 'orbs') { ar = al = -2.2 * k; }
       else if (a.kind === 'charge') { b.torso.rotation.x = 0.6; ar = al = a.t < a.wind ? 0.5 : -0.4; }
     }

@@ -12,7 +12,7 @@ export class Player {
     this.crouching = false; this.sprinting = false; this.exhausted = false; this.blocking = false;
     this.buffs = {}; this.regenQ = []; this.staminaDelay = 0;
     this.dodge = null; this.dodgeCd = 0; this.iframes = 0; this.stagger = 0;
-    this.speedNow = 0; this.shake = 0; this.dead = false; this.hbT = 0; this.flicker = 0;
+    this.speedNow = 0; this.kx = 0; this.kz = 0; this.lastBlocked = false; this.shake = 0; this.dead = false; this.hbT = 0; this.flicker = 0;
   }
   charm(k) { const c = this.g.inv.eq.charm; const d = c && ITEMS[c].c; return (d && d[k]) || 0; }
   armorDef() { const a = this.g.inv.eq.armor; return a ? ITEMS[a].a : null; }
@@ -75,6 +75,7 @@ export class Player {
     this.vx += (tvx - this.vx) * k; this.vz += (tvz - this.vz) * k;
     let mx = this.vx * dt, mz = this.vz * dt;
     if (this.dodge) { this.dodge.t += dt; mx = this.dodge.dx * 8.5 * dt; mz = this.dodge.dz * 8.5 * dt; if (this.dodge.t > 0.26) this.dodge = null; }
+    mx += this.kx * dt; mz += this.kz * dt; const kd = Math.max(0, 1 - dt * 7); this.kx *= kd; this.kz *= kd;
     world.move(this, mx, mz, PLAYER_R);
     this.speedNow = Math.hypot(this.vx, this.vz);
 
@@ -104,6 +105,7 @@ export class Player {
     if (this.hp < this.maxHp * 0.3) { this.hbT -= dt; if (this.hbT <= 0) { g.audio.heartbeat(1 - this.hp / (this.maxHp * 0.3)); this.hbT = 0.9 + this.hp / this.maxHp * 2; } }
   }
 
+  knock(x, z, f) { const dx = this.x - x, dz = this.z - z, d = Math.hypot(dx, dz) || 1; this.kx = dx / d * f; this.kz = dz / d * f; }
   // raw damage from a source {x,z}; returns damage dealt
   hurt(raw, src, opts = {}) {
     if (this.dead || this.iframes > 0) return 0;
@@ -113,7 +115,7 @@ export class Player {
       const fx = -Math.sin(this.yaw), fz = -Math.cos(this.yaw);
       if ((dx * fx + dz * fz) / d > 0.3) {
         const cost = raw * 0.7;
-        if (this.stamina >= cost) { this.stamina -= cost; this.staminaDelay = 1.1; dmg = raw * 0.15; g.audio.play('block'); g.noise(this.x, this.z, 10); }
+        if (this.stamina >= cost) { this.stamina -= cost; this.staminaDelay = 1.1; dmg = raw * 0.15; g.audio.play('block'); g.noise(this.x, this.z, 10); this.lastBlocked = true; }
         else { this.stamina = 0; this.stagger = 0.9; g.ui.toast('Guard broken!', '#c44'); }
       }
     }

@@ -27,12 +27,29 @@ export function bfsGrid(w, h, sx, sy, pass) {
 
 export function generateFloor(runSeed, floor) {
   let last = null;
-  for (let a = 0; a < 16; a++) {
+  for (let a = 0; a < 48; a++) {
     const f = floor >= MAX_FLOOR ? buildFinal(runSeed, floor) : buildFloor(runSeed, floor, a);
     last = f;
     if (validate(f)) { f.attempt = a; return f; }
   }
+  ensureKeys(last);
   return last;
+}
+
+// Last-resort guarantee: every locked door has a matching key chest the player can reach without keys.
+function ensureKeys(f) {
+  if (!f || f.final) return;
+  const { w, h, tiles: t } = f;
+  const dist = bfsGrid(w, h, f.start.x, f.start.y, (x, y) => (x < 0 || y < 0 || x >= w || y >= h) ? false : t[y * w + x] === T.FLOOR);
+  const need = [];
+  if (f.stairs && f.stairs.locked) need.push('key_stairs');
+  if (f.vault) need.push('key_vault');
+  for (const id of need) {
+    if (f.chests.some(c => c.kind === 'key' && c.contents[0].id === id && dist[c.ty * w + c.tx] >= 0)) continue;
+    let best = null;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const dd = dist[y * w + x]; if (dd >= 2 && (!best || dd > best.d) && !f.chests.some(c => c.tx === x && c.ty === y)) best = { x, y, d: dd }; }
+    if (best) f.chests.push({ x: (best.x + 0.5) * TS, z: (best.y + 0.5) * TS, fx: 0, fz: -1, tx: best.x, ty: best.y, kind: 'key', region: 'open', contents: [{ id, n: 1 }], tell: false, trapped: false });
+  }
 }
 
 function buildFloor(runSeed, floor, attempt) {
@@ -174,8 +191,9 @@ function buildFloor(runSeed, floor, attempt) {
     return c.length ? rng.pick(c) : null;
   };
   // keys first (always real chests in the open region, never behind the doors they unlock)
-  if (stairs.locked) { const c = pickOpen(8) || pickOpen(3); if (c) chests.push(chestAt(c.x, c.y, 'key', 'open', [makeStack(rng, 'key_stairs')])); }
-  if (vault) { const c = pickOpen(8) || pickOpen(3); if (c) chests.push(chestAt(c.x, c.y, 'key', 'open', [makeStack(rng, 'key_vault')])); }
+  const keyChest = (id) => { const c = pickOpen(8) || pickOpen(3) || pickOpen(1) || pickOpen(0); if (c) chests.push(chestAt(c.x, c.y, 'key', 'open', [makeStack(rng, id)])); };
+  if (stairs.locked) keyChest('key_stairs');
+  if (vault) keyChest('key_vault');
   if (vault) chests.push(chestAt(vault.x, vault.y, 'vault', 'vault', rollChest(rng, floor, 'vault')));
   if (secret) chests.push(chestAt(secret.x, secret.y, 'secret', 'secret', rollChest(rng, floor, 'secret')));
 
@@ -216,7 +234,7 @@ function buildFloor(runSeed, floor, attempt) {
     else c = pickOpen(4);
     if (!c) continue;
     const ch2 = chestAt(c.x, c.y, 'normal', 'open', rollChest(rng, floor, 'normal'));
-    if (rng.chance(mimicP)) { ch2.kind = 'mimic'; ch2.tell = rng.chance(0.5); }
+    if (rng.chance(mimicP)) { ch2.kind = 'mimic'; rng.chance(0.5); ch2.tell = false; }   // a mimic looks exactly like a real chest
     else if (floor >= 3 && rng.chance(0.08)) ch2.trapped = true;
     chests.push(ch2);
   }

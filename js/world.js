@@ -72,7 +72,7 @@ export class World {
     };
     this.S = S;
     // lights
-    this.ambient = new THREE.AmbientLight(tier.amb, 0.7); this.group.add(this.ambient);
+    this.ambient = new THREE.AmbientLight(tier.amb, 0.55); this.group.add(this.ambient);
     this.pLight = new THREE.PointLight(0xffc27a, 60, 16, 2); this.group.add(this.pLight);
     this.pool = [];
     for (let i = 0; i < 4; i++) { const l = new THREE.PointLight(tier.torch, 0, 13, 2); this.group.add(l); this.pool.push(l); }
@@ -112,7 +112,7 @@ export class World {
     this.pLight.castShadow = on;
     if (on) { this.pLight.shadow.mapSize.set(512, 512); this.pLight.shadow.camera.near = 0.2; this.pLight.shadow.camera.far = 18; this.pLight.shadow.bias = -0.003; }
   }
-  setBrightness(b) { this.brightness = b; this.ambient.intensity = 0.7 * b; }
+  setBrightness(b) { this.brightness = b; this.ambient.intensity = 0.55 * b; }
 
   glowSprite(color, scale, noFog) {
     const m = new THREE.SpriteMaterial({ map: getTex('glow'), color, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: !noFog });
@@ -155,7 +155,6 @@ export class World {
     const wood = this.S(getTex('chest')), metal = new THREE.MeshLambertMaterial({ color: 0x3a3630 }), gold = new THREE.MeshLambertMaterial({ color: 0x8a6a20, emissive: 0x201400 });
     this.disposables.push(metal, gold);
     const { group: g, lid } = makeChestParts(wood, metal, gold);
-    if (c.kind === 'mimic' && c.tell) lid.add(BOX(0.8, 0.02, 0.02, new THREE.MeshBasicMaterial({ color: 0x990000 }), 0, 0.0, 0.64));
     g.position.set(c.x, 0, c.z); g.rotation.y = Math.atan2(c.fx, c.fz);
     g.traverse(m => { if (m.isMesh) m.castShadow = true; });
     return { g, lid };

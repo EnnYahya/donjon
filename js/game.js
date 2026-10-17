@@ -7,6 +7,7 @@ import { World } from './world.js';
 import { Player } from './player.js';
 import { Combat } from './combat.js';
 import { MonsterSys } from './monsters.js';
+import { Scares } from './scares.js';
 import { Inventory } from './inventory.js';
 import { ITEMS, RARITY, rollItem, makeStack } from './items.js';
 import { AudioSys } from './audio.js';
@@ -27,7 +28,7 @@ export class Game {
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(75, 1, 0.08, 90); this.scene.add(this.camera);
     this.audio = new AudioSys(); this.inv = new Inventory(); this.player = new Player(this);
-    this.combat = new Combat(this); this.monsters = new MonsterSys(this); this.ui = new UI(this);
+    this.combat = new Combat(this); this.monsters = new MonsterSys(this); this.ui = new UI(this); this.scares = new Scares(this);
     this.combat.attachTo(this.camera);
     this.input = { dx: 0, dy: 0, keys: new Set(), pressed: new Set(), mouse: [false, false, false] };
     this.state = 'menu'; this.locked = false; this.time = 0; this.world = null; this.data = null; this.run = null;
@@ -125,13 +126,13 @@ export class Game {
       el.addEventListener('input', () => { S[key] = type === 'bool' ? el.checked : type === 'str' ? el.value : parseFloat(el.value); if (v) v.textContent = fmt(S[key]); this.applySettings(); });
     };
     bind('sSens', 'sens', 'vSens', v => v.toFixed(2)); bind('sVol', 'volume', 'vVol', v => Math.round(v * 100) + '%'); bind('sBri', 'brightness', 'vBri', v => v.toFixed(2)); bind('sSmooth', 'smooth', 'vSmooth', v => v <= 0 ? 'off' : Math.round(v * 100) + '%'); bind('sCompass', 'compass', null, null, 'str');
-    bind('sQual', 'quality', null, null, 'str'); bind('sShadow', 'shadows', null, null, 'bool'); bind('sFx', 'effects', null, null, 'bool'); bind('sInv', 'invMode', null, null, 'str');
+    bind('sQual', 'quality', null, null, 'str'); bind('sShadow', 'shadows', null, null, 'bool'); bind('sFx', 'effects', null, null, 'bool'); bind('sInv', 'invMode', null, null, 'str'); bind('sScare', 'scares', null, null, 'str');
   }
   openSettings() {
     const S = this.settings;
     $('sSens').value = S.sens; $('vSens').textContent = S.sens.toFixed(2); $('sVol').value = S.volume; $('vVol').textContent = Math.round(S.volume * 100) + '%';
     $('sCompass').value = S.compass; $('sSmooth').value = S.smooth; $('vSmooth').textContent = S.smooth <= 0 ? 'off' : Math.round(S.smooth * 100) + '%';
-    $('sBri').value = S.brightness; $('vBri').textContent = S.brightness.toFixed(2); $('sQual').value = S.quality; $('sShadow').checked = S.shadows; $('sFx').checked = S.effects; $('sInv').value = S.invMode;
+    $('sBri').value = S.brightness; $('vBri').textContent = S.brightness.toFixed(2); $('sQual').value = S.quality; $('sShadow').checked = S.shadows; $('sFx').checked = S.effects; $('sInv').value = S.invMode; $('sScare').value = S.scares || 'many';
     this.ui.screen('settings');
   }
 
@@ -240,7 +241,7 @@ export class Game {
     world.onDoor = (d, silent) => {
       const pos = { x: d.wx, z: d.wz }, big = d.kind === 'gate';
       this.audio.play(d.kind === 'secret' ? 'secret' : big ? 'gate' : 'door', pos);
-      if (silent !== 'monster') this.noise(d.wx, d.wz, big ? 14 : 9);
+      if (silent !== 'monster') { this.noise(d.wx, d.wz, big ? 14 : 9); this.scares.onDoor(d); }
     };
     this.scene.add(world.group);
     this.scene.fog = new THREE.FogExp2(tier.fog, tier.fogD); this.renderer.setClearColor(tier.fog);
@@ -249,6 +250,7 @@ export class Game {
     if (data.stairs && !data.stairs.noGate) { const sd = data.stairs, door = world.doorAt(sd.doorX, sd.doorY); if (door && !door.locked) { door.open = true; door.t = 1; } }
     this.floorTime = 0; this.hintUntil = 0; this.mapOpen = false; $('mapView').classList.add('hidden');
     this.monsters.load(world, data, n, this.meta.cycles);
+    this.scares.reset(n);
     const p = this.player;
     p.x = (data.start.x + 0.5) * TS; p.z = (data.start.y + 0.5) * TS; p.vx = p.vz = 0; p.dodge = null;
     // Safety net: if anything solid overlaps the start position, step to the nearest free spot.
@@ -260,6 +262,10 @@ export class Game {
     let yaw = 0;
     for (const [dx, dz] of [[0, 1], [1, 0], [0, -1], [-1, 0]]) if (data.final ? dz === -1 : world.tile(data.start.x + dx, data.start.y + dz) === T.FLOOR) { yaw = Math.atan2(-dx, -dz); break; }
     p.yaw = yaw; p.pitch = 0; this.camYaw = undefined;
+    // Safety net: a floor with a locked door ALWAYS has its key. If one is ever missing, it lies next to the start.
+    for (const [need, id] of [['stairs', 'key_stairs'], ['vault', 'key_vault']]) {
+      if (data.doors.some(d => d.keyId === need) && !data.chests.some(c => c.contents.some(s => s.id === id))) this.dropItem(id, 1, p.x + Math.sin(yaw) * -1.2, p.z + Math.cos(yaw) * -1.2);
+    }
     this.ui.setFloor(n); this.audio.setTier(tierIndex(n));
     if (!first || true) this.ui.banner(n === MAX_FLOOR ? 'FLOOR 50' : `FLOOR ${n}`, tier.name, 4200);
     this.saveRunState();
@@ -310,6 +316,7 @@ export class Game {
   }
   onPlayerDeath() {
     const p = this.player; if (p.dead || this.god) { if (this.god) p.hp = p.maxHp; return; }
+    this.scares.stop();
     if (this.inv.count('phoenix_ash') > 0) {
       this.inv.take('phoenix_ash', 1); p.hp = p.maxHp * 0.5; p.iframes = 2.5; this.ui.toast('The Phoenix Ash burns away... you rise again.', '#f0a830');
       this.ui.hurtFlash(1); this.audio.play('altar'); return;
@@ -374,7 +381,7 @@ export class Game {
       }
       case 'chest': this.openChest(it.obj); break;
       case 'remains': {
-        const r = it.obj; r.searched = true; this.audio.play('inv');
+        const r = it.obj; r.searched = true; this.audio.play('inv'); this.scares.onRemains();
         if (!r.contents.length) this.ui.toast('Nothing but bones and dust.', '#8a8070');
         for (const s of r.contents) this.giveItem(s);
         break;
@@ -406,9 +413,13 @@ export class Game {
   openChest(c) {
     const p = this.player;
     if (c.data.kind === 'mimic' && !c.opened) {
-      c.opened = true; c.mimicRevealed = true; c.group.removeFromParent();
-      this.monsters.spawnMimic({ x: c.x, z: c.z, fx: c.data.fx, fz: c.data.fz, contents: c.contents });
-      this.ui.toast('The chest was alive!', '#d04030'); this.audio.silence(0.8); p.shake = 0.8; this.noise(c.x, c.z, 12);
+      // it opens exactly like a normal chest (same sound, same lid) ... and then it bites
+      c.opened = true; c.mimicRevealed = true; c.target = 1; this.audio.play('chest', { x: c.x, z: c.z });
+      this.timers.push({ t: 0.45, fn: () => {
+        c.group.removeFromParent();
+        this.monsters.spawnMimic({ x: c.x, z: c.z, fx: c.data.fx, fz: c.data.fz, contents: c.contents });
+        this.ui.toast('The chest was alive!', '#d04030'); this.audio.silence(0.8); p.shake = 1; this.noise(c.x, c.z, 12); this.scares.onMimic();
+      } });
       return;
     }
     if (!c.opened) {
@@ -420,6 +431,7 @@ export class Game {
           if (Math.hypot(p.x - c.x, p.z - c.z) < 2.5) p.hurt(15, { x: c.x, z: c.z }, { unblockable: true, by: 'a chest trap' });
         } });
       }
+      this.scares.onChest(c);
     }
     const left = [];
     for (const s of c.contents) if (!this.giveItem(s)) left.push(s);
@@ -494,6 +506,7 @@ export class Game {
     if (this.mapOpen) { this.mapT = (this.mapT || 0) - dt; if (this.mapT <= 0) { this.mapT = 0.15; this.ui.drawMap(this); } }
     this.combat.update(dt, inp);
     this.monsters.update(dt, this);
+    if (controllable) this.scares.update(dt);
     this.updateTraps(dt); this.updateDrops(dt);
     for (let i = this.timers.length - 1; i >= 0; i--) { const t = this.timers[i]; t.t -= dt; if (t.t <= 0) { this.timers.splice(i, 1); t.fn(); } }
     // audio
