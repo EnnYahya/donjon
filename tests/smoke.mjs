@@ -63,6 +63,7 @@ for (let f = 1; f <= 50; f++) {
     const w = g.world, d = g.data, p = g.player;
     ok(w.tile(d.start.x, d.start.y) === T.FLOOR, 'start walkable floor ' + f);
     // random walking input for a few seconds, sprinting, attacking
+    g.mapOpen = f % 2 === 0; g.hintUntil = g.time + 5; g.floorTime = 999; g.ui.drawMap(g);
     g.input.keys.add('KeyW'); g.input.keys.add('ShiftLeft'); g.input.mouse[0] = f % 3 === 0;
     for (let i = 0; i < 90; i++) { g.input.dx = (Math.random() - 0.5) * 80; g.tick(1 / 30, true); if (i % 20 === 0) g.input.pressed.add('KeyE'); if (i === 40) { g.input.pressed.add('Space'); } }
     g.input.keys.clear(); g.input.mouse[0] = false;
@@ -110,6 +111,44 @@ guard('monster zoo', () => {
     ok(m.hp <= m.maxHp, 'zoo ' + t);
   }
   ok(g.run.kills >= 0, 'kills tracked');
+});
+
+// ---------- every attack pattern, forced; non-god so damage lands ----------
+guard('attack patterns', () => {
+  g.loadFloor(12); g.god = false; const p = g.player, w = g.world; const M = g.monsters.list[0].constructor;
+  const tile = g.monsters.openTiles[Math.floor(g.monsters.openTiles.length / 3)];
+  for (const [t, kinds] of [['hollow', ['swing', 'lunge']], ['stalker', ['flurry', 'lunge']], ['blind', ['smash', 'sweep']], ['warden', ['smash', 'sweep', 'swing']], ['mimic', ['lunge']]]) {
+    for (const k of kinds) {
+      const m = new M(g.monsters, t, (tile[0] + 0.5) * TS, (tile[1] + 0.5) * TS, { chase: true }); g.monsters.list.push(m);
+      m.pickPattern = () => ({ kind: k, n: 3, R: 2.2 });
+      p.dead = false; p.hp = p.maxHp; p.iframes = 0; p.x = m.x + 1.5; p.z = m.z; if (w.collides(p.x, p.z, 0.4)) p.x = m.x - 1.5; g.state = 'playing';
+      let attacked = false, hurt = false;
+      for (let i = 0; i < 240; i++) { m.cdT = 0; p.iframes = 0; g.tick(1 / 30, true); if (m.state === 'attack' && m.atk && m.atk.kind === k) attacked = true; if (p.hp < p.maxHp) hurt = true; if (p.dead) break; }
+      ok(attacked, t + ' performs ' + k); ok(Number.isFinite(p.x) && Number.isFinite(p.kx), 'finite after ' + k);
+      m.dead = true; m.group.removeFromParent();
+    }
+  }
+  p.dead = false; p.hp = p.maxHp; g.state = 'playing';
+});
+
+// ---------- jump scares, mimic disguise, keys ----------
+guard('scares', () => {
+  g.loadFloor(15); g.god = true; g.settings.scares = 'many'; const p = g.player, S = g.scares;
+  g.floorTime = 999;
+  for (const k of ['rush', 'peek', 'vanish']) { const s = S.findSpot(3, 14, false) || { x: p.x + 4, z: p.z }; S.spawnPhantom(s.x, s.z, k); for (let i = 0; i < 120; i++) S.update(1 / 30); S.removePhantom(); }
+  for (let i = 0; i < 40; i++) S.bigScare();
+  for (let i = 0; i < 300; i++) g.tick(1 / 30, true);
+  S.flash(100); S.onDoor({ wx: p.x + 2, wz: p.z, kind: 'wood' }); S.onChest({}); S.onRemains(); S.ambient(); S.update(1);
+  g.settings.scares = 'off'; S.next = 0; S.update(1); g.settings.scares = 'many'; S.stop();
+  ok(true, 'scares run without errors');
+  // a mimic chest is built from the same parts as a real one, and opens like one before it bites
+  const w = g.world, c = w.chests.find(q => q.data.kind !== 'mimic' && !q.opened); c.data.kind = 'mimic';
+  const n0 = g.monsters.list.length; g.openChest(c);
+  ok(g.monsters.list.length === n0, 'mimic does not reveal instantly');
+  for (let i = 0; i < 30; i++) g.tick(1 / 30, true);
+  ok(g.monsters.list.length === n0 + 1 && g.monsters.list[n0].type === 'mimic', 'mimic bites after the lid opens');
+  // every floor with a bone-key door has a bone key chest
+  for (let f = 1; f <= 50; f++) { g.loadFloor(f); const has = g.data.doors.some(d => d.keyId === 'vault'); if (has) ok(g.data.chests.some(q => q.contents.some(s => s.id === 'key_vault')), 'bone key on floor ' + f); }
 });
 
 // ---------- final floor: boss fight and the ring ----------

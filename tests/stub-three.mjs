@@ -36,10 +36,10 @@ export class Group extends Object3D {}
 export class Scene extends Object3D {}
 export class PerspectiveCamera extends Object3D { constructor() { super(); this.far = 90; this.aspect = 1; } updateProjectionMatrix() {} }
 const geo = () => class { constructor(...a) { this.args = a; this.attributes = {}; } dispose() {} rotateX() { return this; } setAttribute(n, a) { this.attributes[n] = a; return this; } };
-export const BoxGeometry = geo(), PlaneGeometry = geo(), CylinderGeometry = geo(), ConeGeometry = geo(), SphereGeometry = geo(), TorusGeometry = geo(), CircleGeometry = geo(), RingGeometry = geo(), OctahedronGeometry = geo(), BufferGeometry = geo();
+export const BoxGeometry = geo(), PlaneGeometry = geo(), CylinderGeometry = geo(), ConeGeometry = geo(), SphereGeometry = geo(), TorusGeometry = geo(), CircleGeometry = geo(), RingGeometry = geo(), OctahedronGeometry = geo(), BufferGeometry = geo(), CapsuleGeometry = geo(), LatheGeometry = geo();
 export class BufferAttribute { constructor(a, n) { this.array = a; this.itemSize = n; } }
 class Material { constructor(p = {}) { this.userData = {}; this.opacity = 1; this.transparent = false; Object.assign(this, p); this.color = new Color(p.color === undefined ? 0xffffff : p.color); this.emissive = new Color(p.emissive === undefined ? 0 : p.emissive); } dispose() {} }
-export class MeshLambertMaterial extends Material {} export class MeshBasicMaterial extends Material {} export class SpriteMaterial extends Material {} export class PointsMaterial extends Material {}
+export class MeshLambertMaterial extends Material {} export class MeshStandardMaterial extends Material {} export class MeshBasicMaterial extends Material {} export class SpriteMaterial extends Material {} export class PointsMaterial extends Material {}
 export class Mesh extends Object3D { constructor(g, m) { super(); this.geometry = g; this.material = m; } }
 export class InstancedMesh extends Mesh { constructor(g, m, n) { super(g, m); this.count = n; this.instanceMatrix = {}; this.instanceColor = null; } setMatrixAt() {} setColorAt() { this.instanceColor = this.instanceColor || {}; } }
 export class Sprite extends Object3D { constructor(m) { super(); this.material = m; } }
