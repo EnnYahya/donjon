@@ -10,6 +10,7 @@
 <canvas id="gl"></canvas>
 <div id="vignette"></div>
 <div id="hurt"></div>
+<div id="scare"><canvas id="scareFace" width="512" height="512"></canvas></div>
 <div id="fade"></div>
 
 <!-- HUD -->
@@ -81,6 +82,8 @@
       <select id="sQual"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></label>
     <label>Dynamic shadows <input id="sShadow" type="checkbox"></label>
     <label>Dust and effects <input id="sFx" type="checkbox"></label>
+    <label>Jump scares
+      <select id="sScare"><option value="many">Many</option><option value="some">Some</option><option value="off">Off</option></select></label>
     <label>Inventory screen
       <select id="sInv"><option value="pause">Pauses the game</option><option value="slow">Slows the game (risky)</option></select></label>
     <button id="bSetBack">Back</button>

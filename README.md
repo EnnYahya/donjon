@@ -55,11 +55,12 @@ Use Chrome, Edge or Firefox on a desktop computer with a mouse and keyboard.
 ## Rules of the dungeon
 
 - **Death is final for the run.** You lose your pack, gear and progress and restart on Floor 1 in a *new* dungeon. This is explained on screen before your first run.
-- Reach the **purple glowing stairs** on each floor to descend. They shine with a purple light and a tall beam you can see down long corridors. If you are lost, a purple compass arrow appears on its own after a couple of minutes (Settings → Stairs compass). Stairs may be behind a locked gate: a key is always somewhere reachable on that floor.
+- Reach the **purple glowing stairs** on each floor to descend. They shine with a purple light and a tall beam you can see down long corridors. If you are lost, a purple compass arrow appears on its own after a couple of minutes (Settings → Stairs compass). Stairs may be behind a locked gate: a key is always somewhere reachable on that floor. Every floor with a Bone Key door always has a Bone Key chest.
 - **Monsters hunt by sight and sound.** Walking is quiet. Sprinting, fighting and opening gates are loud. Crouching is quiet.
 - Hitting an unaware monster is a **backstab** (x2 damage, x3 with a dagger).
 - The lantern burns down. Oil and torches are limited. In the dark, monsters see you less well, and so do you.
-- Some chests are **Mimics**. Some chests are trapped (they click first: step away). Pressure plates click before they fire.
+- **Jump scares**: phantoms that rush you, lights that die, footsteps behind you, faces that flash. They never hurt, but they will make you jump. Settings → Jump scares (Many / Some / Off).
+- Some chests are **Mimics**, and they look exactly like real chests. Some chests are trapped (they click first: step away). Pressure plates click before they fire.
 - Scratching sounds and scratch marks hint at secret rooms. Walk up to the wall and push it.
 - Floors 10, 20, 30, 40 have a **Floor Guardian** blocking the stairs. Floors 5, 15, 25, 35, 45 have an optional one guarding good loot.
 - Floor 50: defeat the **Elden Guardian**, take the **Elden Ring**, and be returned to Floor 1. Each loop gives you +5 max health (up to +25) and makes monsters stronger.
@@ -100,6 +101,7 @@ js/rng.js             seeded random number generator
 js/dungeon.js         procedural floor generation + solvability validation (pure logic)
 js/world.js           turns a floor grid into 3D geometry, lights, doors, collision
 js/textures.js        procedural canvas textures (stone, wood, blood, runes ...)
+js/scares.js          jump-scare director (phantoms, face flash, sounds)
 js/geometry.js        rounded / rough-hewn blocks and the chest model
 js/player.js          first-person movement, stamina, noise, light, damage
 js/monsters.js        all monsters, AI state machine, 3D bodies, boss attacks
