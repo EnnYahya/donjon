@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { TS, T, tierFor } from './config.js';
 import { RNG } from './rng.js';
 import { getTex } from './textures.js';
+import { roundedBox, makeChestParts } from './geometry.js';
 
 const DV = [[1, 0], [0, 1], [-1, 0], [0, -1]];
 const BOX = (w, h, d, mat, x = 0, y = 0, z = 0) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); return m; };
@@ -62,6 +63,14 @@ export class World {
     const tint = new THREE.Color(tier.tint);
     const M = (map, extra = {}) => { const m = new THREE.MeshLambertMaterial({ map, ...extra }); m.color.multiply(tint); this.disposables.push(m); return m; };
     this.M = M;
+    // stone-like surfaces: real relief from a bump map, so torch light rakes across the stones
+    const q = this.opts.quality || 'medium';
+    const S = (map) => {
+      if (q === 'low') return M(map);
+      const m = new THREE.MeshStandardMaterial({ map, bumpMap: map, bumpScale: q === 'high' ? 2.2 : 1.6, roughness: 0.93, metalness: 0 });
+      m.color.multiply(tint); this.disposables.push(m); return m;
+    };
+    this.S = S;
     // lights
     this.ambient = new THREE.AmbientLight(tier.amb, 0.7); this.group.add(this.ambient);
     this.pLight = new THREE.PointLight(0xffc27a, 60, 16, 2); this.group.add(this.pLight);
@@ -87,12 +96,12 @@ export class World {
       m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true;
       m.castShadow = m.receiveShadow = shadow; this.group.add(m); this.disposables.push(geo); return m;
     };
-    const wallGeo = new THREE.BoxGeometry(TS, H, TS);
-    for (let v = 0; v < 3; v++) inst(wallGeo, M(getTex('wall' + v)), wallT[v], (ob, p) => { ob.position.set((p[0] + 0.5) * TS, H / 2, (p[1] + 0.5) * TS); ob.rotation.set(0, 0, 0); ob.scale.set(1, 1, 1); }, true);
+    const seg = q === 'low' ? 2 : q === 'high' ? 6 : 4;
+    for (let v = 0; v < 3; v++) inst(roundedBox(TS, H + 0.5, TS, 0.16, seg, q === 'low' ? 0 : 0.07, v * 7.3), S(getTex('wall' + v)), wallT[v], (ob, p) => { ob.position.set((p[0] + 0.5) * TS, H / 2, (p[1] + 0.5) * TS); ob.rotation.set(0, 0, 0); ob.scale.set(1, 1, 1); }, true);
     const flG = new THREE.PlaneGeometry(TS, TS); flG.rotateX(-Math.PI / 2);
     const ceG = new THREE.PlaneGeometry(TS, TS); ceG.rotateX(Math.PI / 2);
-    inst(flG, M(getTex('floor')), floorT, (ob, p) => { ob.position.set((p[0] + 0.5) * TS, 0, (p[1] + 0.5) * TS); }, true);
-    inst(ceG, M(getTex('ceil')), floorT, (ob, p) => { ob.position.set((p[0] + 0.5) * TS, H, (p[1] + 0.5) * TS); }, false);
+    inst(flG, S(getTex('floor')), floorT, (ob, p) => { ob.position.set((p[0] + 0.5) * TS, 0, (p[1] + 0.5) * TS); }, true);
+    inst(ceG, S(getTex('ceil')), floorT, (ob, p) => { ob.position.set((p[0] + 0.5) * TS, H, (p[1] + 0.5) * TS); }, false);
 
     this.buildDoors(); this.buildChests(); this.buildDecor(); this.buildTraps(); this.buildStairs();
     if (d.final) this.buildFinal();
@@ -143,15 +152,9 @@ export class World {
 
   // ---------- chests ----------
   makeChestMesh(c) {
-    const g = new THREE.Group();
-    const wood = this.M(getTex('chest')), metal = new THREE.MeshLambertMaterial({ color: 0x3a3630 }), gold = new THREE.MeshLambertMaterial({ color: 0x8a6a20 });
+    const wood = this.S(getTex('chest')), metal = new THREE.MeshLambertMaterial({ color: 0x3a3630 }), gold = new THREE.MeshLambertMaterial({ color: 0x8a6a20, emissive: 0x201400 });
     this.disposables.push(metal, gold);
-    g.add(BOX(1, 0.5, 0.62, wood, 0, 0.25, 0));
-    g.add(BOX(1.02, 0.07, 0.1, metal, 0, 0.25, 0.2)); g.add(BOX(1.02, 0.07, 0.1, metal, 0, 0.25, -0.2));
-    const lid = new THREE.Group(); lid.position.set(0, 0.5, -0.31); g.add(lid);
-    lid.add(BOX(1, 0.22, 0.64, wood, 0, 0.11, 0.31));
-    lid.add(BOX(0.12, 0.26, 0.68, metal, -0.3, 0.11, 0.31)); lid.add(BOX(0.12, 0.26, 0.68, metal, 0.3, 0.11, 0.31));
-    g.add(BOX(0.12, 0.14, 0.05, gold, 0, 0.45, 0.33));
+    const { group: g, lid } = makeChestParts(wood, metal, gold);
     if (c.kind === 'mimic' && c.tell) lid.add(BOX(0.8, 0.02, 0.02, new THREE.MeshBasicMaterial({ color: 0x990000 }), 0, 0.0, 0.64));
     g.position.set(c.x, 0, c.z); g.rotation.y = Math.atan2(c.fx, c.fz);
     g.traverse(m => { if (m.isMesh) m.castShadow = true; });
@@ -171,8 +174,8 @@ export class World {
       this.remains.push({ x: r.x, z: r.z, group: g, contents: r.contents.map(s => ({ ...s })), searched: false });
     }
     for (const a of this.d.altars) {
-      const g = new THREE.Group(), stone = this.M(getTex('wall1'));
-      g.add(BOX(1.6, 0.9, 1, stone, 0, 0.45, 0));
+      const g = new THREE.Group(), stone = this.S(getTex('wall1'));
+      g.add(new THREE.Mesh(roundedBox(1.6, 0.9, 1, 0.08, 3, 0.02, 3), stone)).position.set(0, 0.45, 0);
       const bowl = BOX(0.8, 0.08, 0.5, new THREE.MeshBasicMaterial({ color: 0x8a1010 }), 0, 0.93, 0); g.add(bowl);
       g.position.set(a.x, 0, a.z); this.group.add(g);
       const sp = this.glowSprite(0xff2010, 1.8); sp.position.set(a.x, 1.1, a.z); this.group.add(sp);
@@ -192,7 +195,7 @@ export class World {
     for (const t of d.torches) {
       const f = this.faceInfo(t.tx, t.ty, t.dir);
       const x = f.fx + f.nx * 0.12, z = f.fz + f.nz * 0.12;
-      this.group.add(BOX(0.12, 0.5, 0.12, dark, x, 1.75, z));
+      { const th = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.06, 0.5, 8), dark); th.position.set(x, 1.75, z); this.group.add(th); const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.05, 0.12, 8), dark); cup.position.set(x, 2.02, z); this.group.add(cup); }
       this.addTorch(f.fx + f.nx * 0.2, 2.1, f.fz + f.nz * 0.2, tier.torch, false);
     }
     for (const dc of d.decals) {
@@ -209,23 +212,33 @@ export class World {
       const m = new THREE.Mesh(new THREE.PlaneGeometry(b.s * 1.5, b.s * 1.5), bm);
       m.rotation.x = -Math.PI / 2; m.rotation.z = b.rot; m.position.set(b.x, 0.02, b.z); this.group.add(m);
     }
-    const stone = this.M(getTex('wall0')), bone = new THREE.MeshLambertMaterial({ color: 0x8a8272 }), steel = new THREE.MeshLambertMaterial({ color: 0x555a60 });
+    const stone = this.S(getTex('wall0')), bone = new THREE.MeshLambertMaterial({ color: 0x8a8272 }), steel = new THREE.MeshLambertMaterial({ color: 0x555a60 });
     this.disposables.push(bone, steel);
     for (const p of d.props) {
       const g = new THREE.Group(); g.position.set(p.x, 0, p.z); g.rotation.y = p.r;
-      if (p.k === 'pillar') { const c = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.65, this.H, 10), stone); c.position.y = this.H / 2; g.add(c); this.circles.push({ x: p.x, z: p.z, r: 0.65 }); }
+      const rb = (w, h, d, r, x, y, z, m = stone) => { const q2 = new THREE.Mesh(roundedBox(w, h, d, r, 3, 0.015, x + z), m); q2.position.set(x, y, z); g.add(q2); return q2; };
+      if (p.k === 'pillar') {
+        const sh = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.58, this.H - 0.6, 18), stone); sh.position.y = this.H / 2; g.add(sh);
+        for (const yy of [0.9, this.H - 0.9]) { const rg = new THREE.Mesh(new THREE.TorusGeometry(0.54, 0.06, 8, 18), stone); rg.rotation.x = Math.PI / 2; rg.position.y = yy; g.add(rg); }
+        rb(1.4, 0.35, 1.4, 0.1, 0, 0.18, 0); rb(1.15, 0.2, 1.15, 0.08, 0, 0.45, 0);
+        rb(1.4, 0.35, 1.4, 0.1, 0, this.H - 0.18, 0); rb(1.15, 0.2, 1.15, 0.08, 0, this.H - 0.45, 0);
+        this.circles.push({ x: p.x, z: p.z, r: 0.7 });
+      }
       else if (p.k === 'statue') {
-        g.add(BOX(1, 0.6, 1, stone, 0, 0.3, 0));
-        const body = BOX(0.5, 1.5, 0.35, stone, 0, 1.35, 0); body.rotation.z = 0.12; g.add(body);
-        g.add(BOX(0.7, 0.12, 0.15, stone, 0.2, 2.0, 0).rotateZ(0.4));
-        g.add(BOX(0.3, 0.12, 0.5, stone, 0.9, 0.06, 0.4));
+        rb(1.1, 0.6, 1.1, 0.1, 0, 0.3, 0);
+        const robe = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.42, 1.3, 14), stone); robe.position.y = 1.25; g.add(robe);
+        const chest = new THREE.Mesh(new THREE.SphereGeometry(0.26, 14, 10), stone); chest.scale.set(1.1, 0.9, 0.7); chest.position.y = 1.95; g.add(chest);
+        const head = new THREE.Mesh(new THREE.SphereGeometry(0.16, 14, 10), stone); head.position.set(0, 2.3, 0.03); g.add(head);
+        const arm = new THREE.Mesh(new THREE.CapsuleGeometry(0.06, 0.6, 4, 8), stone); arm.position.set(0.3, 2.2, 0.05); arm.rotation.z = -0.5; g.add(arm);
+        const arm2 = new THREE.Mesh(new THREE.CapsuleGeometry(0.06, 0.55, 4, 8), stone); arm2.position.set(-0.28, 1.75, 0.18); arm2.rotation.z = 0.2; arm2.rotation.x = -0.6; g.add(arm2);
+        rb(0.3, 0.12, 0.5, 0.05, 0.9, 0.06, 0.4);
         this.circles.push({ x: p.x, z: p.z, r: 0.75 });
       } else if (p.k === 'gear') {
         const blade = BOX(0.07, 0.9, 0.02, steel, 0, 0.4, 0); blade.rotation.z = 0.25; g.add(blade);
         const sh = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.05, 10), steel); sh.position.set(0.7, 0.03, 0.3); g.add(sh);
       } else if (p.k === 'brazier') {
-        g.add(BOX(0.12, 0.9, 0.12, dark, 0, 0.45, 0));
-        const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.2, 0.25, 10), dark); bowl.position.y = 1.0; g.add(bowl);
+        { const st = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.1, 0.9, 8), dark); st.position.y = 0.45; g.add(st); const ft = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.32, 0.08, 10), dark); ft.position.y = 0.04; g.add(ft); }
+        const bowl = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.2, 0.25, 16), dark); bowl.position.y = 1.0; g.add(bowl);
         this.circles.push({ x: p.x, z: p.z, r: 0.45 });
         this.addTorch(p.x, 1.25, p.z, tier.torch, true);
       }

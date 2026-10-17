@@ -5,6 +5,7 @@ import { TS, T, scaling, tierIndex } from './config.js';
 import { Pathfinder, losClear } from './pathfinding.js';
 import { RNG, hash } from './rng.js';
 import { rollItem, makeStack } from './items.js';
+import { roundedBox } from './geometry.js';
 
 export const DEFS = {
   hollow:   { name: 'The Hollow', hp: 60, dmg: 14, patrol: 1.2, chase: 2.7, sight: 14, hear: 1.0, range: 1.9, wind: 0.8, rec: 0.6, cd: 1.3, r: 0.42, h: 1.8, fov: 0.3, drop: 0.2 },
@@ -26,7 +27,8 @@ function humanoid(o, mats) {
   const mk = (c, ghost) => { const m = new THREE.MeshLambertMaterial({ color: c, emissive: 0x000000, transparent: !!ghost }); m.userData.base = 0; mats.push(m); return m; };
   const skin = mk(o.skin, o.ghost), cloth = mk(o.cloth, o.ghost), metal = o.metal !== undefined ? mk(o.metal) : null;
   const g = new THREE.Group();
-  const box = (w, h, d, m, x, y, z, par) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); (par || g).add(b); return b; };
+  const box = (w, h, d, m, x, y, z, par) => { const b = new THREE.Mesh(roundedBox(w, h, d, Math.min(w, h, d) * 0.32, 2), m); b.position.set(x, y, z); (par || g).add(b); return b; };
+  const ball = (w, h, d, m, x, y, z, par) => { const b = new THREE.Mesh(new THREE.SphereGeometry(0.5, 14, 10), m); b.scale.set(w, h, d); b.position.set(x, y, z); (par || g).add(b); return b; };
   const legH = 0.8 * s * Hh;
   const mkLeg = (x) => { const p = new THREE.Group(); p.position.set(x * W * s, legH, 0); box(0.17 * s * W, legH, 0.2 * s * W, cloth, 0, -legH / 2, 0, p); g.add(p); return p; };
   const legL = mkLeg(-0.14), legR = mkLeg(0.14);
@@ -51,11 +53,11 @@ function humanoid(o, mats) {
   const eyes = [];
   const addEyes = (y, z, sz, gap) => { if (!eyeMat) return; for (const x of [-gap, gap]) { const e = box(sz, sz * 0.7, sz, eyeMat, x, y, z, head); eyes.push(e); } };
   switch (o.head) {
-    case 'skull': box(0.22 * s, 0.26 * s, 0.24 * s, skin, 0, 0.14 * s, 0, head); box(0.18 * s, 0.07 * s, 0.1 * s, cloth, 0, 0.02 * s, 0.06 * s, head); addEyes(0.18 * s, 0.12 * s, 0.045 * s, 0.05 * s); head.rotation.z = 0.25; break;
-    case 'long': box(0.17 * s, 0.38 * s, 0.17 * s, skin, 0, 0.2 * s, 0, head); addEyes(0.26 * s, 0.09 * s, 0.04 * s, 0.045 * s); break;
-    case 'sack': { const sk = mk(0x8a7550); box(0.34 * s, 0.34 * s, 0.34 * s, sk, 0, 0.17 * s, 0, head); box(0.06 * s, 0.2 * s, 0.04 * s, cloth, 0.08 * s, 0.17 * s, 0.18 * s, head); box(0.06 * s, 0.2 * s, 0.04 * s, cloth, -0.08 * s, 0.17 * s, 0.18 * s, head); box(0.1 * s, 0.18 * s, 0.04 * s, sk, 0.22 * s, 0.17 * s, 0, head); box(0.1 * s, 0.18 * s, 0.04 * s, sk, -0.22 * s, 0.17 * s, 0, head); break; }
+    case 'skull': ball(0.24 * s, 0.28 * s, 0.26 * s, skin, 0, 0.14 * s, 0, head); box(0.18 * s, 0.07 * s, 0.1 * s, cloth, 0, 0.02 * s, 0.06 * s, head); addEyes(0.18 * s, 0.12 * s, 0.045 * s, 0.05 * s); head.rotation.z = 0.25; break;
+    case 'long': ball(0.18 * s, 0.42 * s, 0.18 * s, skin, 0, 0.2 * s, 0, head); addEyes(0.26 * s, 0.09 * s, 0.04 * s, 0.045 * s); break;
+    case 'sack': { const sk = mk(0x8a7550); ball(0.38 * s, 0.38 * s, 0.38 * s, sk, 0, 0.17 * s, 0, head); box(0.06 * s, 0.2 * s, 0.04 * s, cloth, 0.08 * s, 0.17 * s, 0.18 * s, head); box(0.06 * s, 0.2 * s, 0.04 * s, cloth, -0.08 * s, 0.17 * s, 0.18 * s, head); box(0.1 * s, 0.18 * s, 0.04 * s, sk, 0.22 * s, 0.17 * s, 0, head); box(0.1 * s, 0.18 * s, 0.04 * s, sk, -0.22 * s, 0.17 * s, 0, head); break; }
     case 'helm': box(0.3 * s, 0.34 * s, 0.3 * s, metal || skin, 0, 0.17 * s, 0, head); addEyes(0.2 * s, 0.155 * s, 0.05 * s, 0.07 * s); break;
-    default: box(0.2 * s, 0.28 * s, 0.2 * s, skin, 0, 0.15 * s, 0, head); addEyes(0.2 * s, 0.1 * s, 0.05 * s, 0.05 * s);
+    default: ball(0.22 * s, 0.3 * s, 0.22 * s, skin, 0, 0.15 * s, 0, head); addEyes(0.2 * s, 0.1 * s, 0.05 * s, 0.05 * s);
   }
   if (o.halo) {
     const hm = new THREE.MeshBasicMaterial({ color: 0xffc040 });
@@ -69,7 +71,7 @@ function mimicBody(mats) {
   const g = new THREE.Group();
   const mk = (c) => { const m = new THREE.MeshLambertMaterial({ color: c, emissive: 0x000000 }); mats.push(m); return m; };
   const wood = mk(0x5a3d22), metal = mk(0x3a3630), tooth = mk(0xe8e0c8), tongue = mk(0x8a1a22);
-  const b = (w, h, d, m, x, y, z, par) => { const q = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); q.position.set(x, y, z); (par || g).add(q); return q; };
+  const b = (w, h, d, m, x, y, z, par) => { const q = new THREE.Mesh(roundedBox(w, h, d, Math.min(w, h, d) * 0.3, 2), m); q.position.set(x, y, z); (par || g).add(q); return q; };
   b(1, 0.5, 0.62, wood, 0, 0.35, 0); b(0.98, 0.05, 0.1, metal, 0, 0.35, 0.2);
   b(0.7, 0.04, 0.4, tongue, 0, 0.6, 0.05);
   for (let i = 0; i < 7; i++) { const t = b(0.07, 0.14, 0.05, tooth, -0.42 + i * 0.14, 0.64, 0.29); t.rotation.x = 0.1; }

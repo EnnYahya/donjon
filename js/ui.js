@@ -73,8 +73,6 @@ export class UI {
       if (t === 0) col = '#1c1612'; else if (t === 2) col = '#8a6a3a'; else if (t === 3) col = '#a03030'; else if (t === 4) col = '#1c1612';
       g.fillStyle = col; g.fillRect(ox + x * cs, oy + y * cs, cs, cs);
     }
-    const s = game.data.stairs;
-    if (s && !s.noGate && (w.explored[s.y * w.w + s.x] || w.explored[s.doorY * w.w + s.doorX])) { g.fillStyle = '#c070ff'; g.fillRect(ox + s.x * cs - 1, oy + s.y * cs - 1, cs + 2, cs + 2); }
     const px = ox + (p.x / 3) * cs, py = oy + (p.z / 3) * cs;
     g.save(); g.translate(px, py); g.rotate(-p.yaw); g.fillStyle = '#ffd060'; g.beginPath(); g.moveTo(0, -cs * 0.9); g.lineTo(cs * 0.6, cs * 0.6); g.lineTo(-cs * 0.6, cs * 0.6); g.closePath(); g.fill(); g.restore();
   }
