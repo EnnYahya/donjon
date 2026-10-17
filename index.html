@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Abyss of the Elden Ring</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="vignette"></div>
+<div id="hurt"></div>
+<div id="fade"></div>
+
+<!-- HUD -->
+<div id="hud" class="hidden">
+  <div id="floorLabel">FLOOR 1 / 50</div>
+  <div id="tierLabel"></div>
+  <div id="crosshair"><span id="hitm"></span></div>
+  <div id="bars">
+    <div class="bar hp"><i id="hpFill"></i><b id="hpText">100</b></div>
+    <div class="bar st"><i id="stFill"></i></div>
+  </div>
+  <div id="gear">
+    <div id="gWeapon">Fists</div>
+    <div class="bar light"><i id="lightFill"></i></div>
+    <div id="gLight">Lantern</div>
+    <div id="gKeys"></div>
+    <div id="buffs"></div>
+  </div>
+  <div id="prompt"></div>
+  <div id="toasts"></div>
+  <div id="bossBar" class="hidden"><div id="bossName"></div><div class="bar boss"><i id="bossFill"></i></div></div>
+  <div id="banner" class="hidden"><h1 id="bnTitle"></h1><p id="bnSub"></p></div>
+  <div id="hint">Q heal · R refuel · T torch · Space roll · Tab pack</div>
+</div>
+
+<!-- Main menu -->
+<div id="menu" class="screen">
+  <div class="panel center">
+    <h1 class="title">ABYSS<br><span>of the Elden Ring</span></h1>
+    <p class="sub">Fifty floors. One ring. No way out.</p>
+    <button id="bNew">New Run</button>
+    <button id="bCont">Continue Run</button>
+    <button id="bSet">Settings</button>
+    <button id="bHow">How to Play</button>
+    <button id="bCred">Credits</button>
+    <p id="metaLine" class="meta"></p>
+  </div>
+</div>
+
+<!-- Warning before the first run -->
+<div id="warn" class="screen hidden">
+  <div class="panel center">
+    <h2>Before you descend</h2>
+    <p class="warn">This dungeon does not forgive.</p>
+    <ul class="left">
+      <li><b>If you die, the run is over.</b> You lose your pack, your gear and all floor progress.</li>
+      <li>You restart on <b>Floor 1</b> in a <b>brand new, different dungeon</b>.</li>
+      <li>The stairs are guarded. Listen. Light is fuel. Healing is rare.</li>
+      <li>Reaching the Elden Ring returns you to Floor 1, and the dungeon grows harsher with every loop.</li>
+    </ul>
+    <button id="bGo">I understand. Descend.</button>
+    <button id="bWarnBack" class="ghost">Back</button>
+  </div>
+</div>
+
+<!-- Settings -->
+<div id="settings" class="screen hidden">
+  <div class="panel">
+    <h2>Settings</h2>
+    <label>Mouse sensitivity <input id="sSens" type="range" min="0.2" max="3" step="0.05"><em id="vSens"></em></label>
+    <label>Volume <input id="sVol" type="range" min="0" max="1" step="0.02"><em id="vVol"></em></label>
+    <label>Brightness <input id="sBri" type="range" min="0.6" max="2" step="0.05"><em id="vBri"></em></label>
+    <label>Graphics quality
+      <select id="sQual"><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option></select></label>
+    <label>Dynamic shadows <input id="sShadow" type="checkbox"></label>
+    <label>Dust and effects <input id="sFx" type="checkbox"></label>
+    <label>Inventory screen
+      <select id="sInv"><option value="pause">Pauses the game</option><option value="slow">Slows the game (risky)</option></select></label>
+    <button id="bSetBack">Back</button>
+  </div>
+</div>
+
+<!-- How to play -->
+<div id="how" class="screen hidden">
+  <div class="panel">
+    <h2>How to Play</h2>
+    <div class="cols">
+      <div>
+        <h3>Controls</h3>
+        <table>
+          <tr><td>W A S D</td><td>Move</td></tr>
+          <tr><td>Mouse</td><td>Look</td></tr>
+          <tr><td>Shift</td><td>Sprint (uses stamina, loud)</td></tr>
+          <tr><td>Ctrl / C</td><td>Crouch (quiet, harder to see)</td></tr>
+          <tr><td>Space</td><td>Dodge roll (brief invulnerability)</td></tr>
+          <tr><td>E</td><td>Interact: doors, chests, stairs</td></tr>
+          <tr><td>Left click</td><td>Attack / shoot</td></tr>
+          <tr><td>Right click</td><td>Block (hold)</td></tr>
+          <tr><td>Q</td><td>Quick heal</td></tr>
+          <tr><td>R</td><td>Refuel lantern with oil</td></tr>
+          <tr><td>T</td><td>Light a pitch torch</td></tr>
+          <tr><td>Tab</td><td>Inventory</td></tr>
+          <tr><td>Esc</td><td>Pause</td></tr>
+        </table>
+      </div>
+      <div>
+        <h3>Survive</h3>
+        <ul class="left small">
+          <li>Find the stairs on each floor and descend. 50 floors, then the Elden Ring.</li>
+          <li>Monsters hunt by <b>sight and sound</b>. Walking is quiet, sprinting and fighting are loud.</li>
+          <li>Hit an unaware enemy for a <b>backstab</b> (daggers are best).</li>
+          <li>Your lantern burns down. Keep oil, or find torches.</li>
+          <li>Some chests bite. Look closely.</li>
+          <li>Pressure plates click before they fire. Step away.</li>
+          <li>Locked gates need keys found elsewhere on the floor.</li>
+          <li>Scratches and sounds behind a wall may hide a secret room.</li>
+          <li>Seeds: add <b>?seed=1234</b> to the address to replay a dungeon.</li>
+        </ul>
+      </div>
+    </div>
+    <button id="bHowBack">Back</button>
+  </div>
+</div>
+
+<!-- Credits -->
+<div id="credits" class="screen hidden">
+  <div class="panel center">
+    <h2>Credits</h2>
+    <p>Abyss of the Elden Ring<br>Built with HTML5, CSS3, JavaScript, Three.js (WebGL) and the Web Audio API.</p>
+    <p>All textures, models and sounds are generated procedurally in code.</p>
+    <p class="meta">Three.js is released under the MIT License.</p>
+    <button id="bCredBack">Back</button>
+  </div>
+</div>
+
+<!-- Pause -->
+<div id="pause" class="screen hidden">
+  <div class="panel center">
+    <h2>Paused</h2>
+    <p id="pauseInfo" class="meta"></p>
+    <button id="bResume">Resume</button>
+    <button id="bPSet">Settings</button>
+    <button id="bPMenu">Save and Quit to Menu</button>
+  </div>
+</div>
+
+<!-- Inventory -->
+<div id="inv" class="screen hidden">
+  <div class="panel wide">
+    <h2>Pack <small id="invCount"></small></h2>
+    <div class="invgrid">
+      <div class="eqcol">
+        <h3>Equipped</h3>
+        <div id="eqWeapon" class="eq" data-slot="weapon"></div>
+        <div id="eqArmor" class="eq" data-slot="armor"></div>
+        <div id="eqCharm" class="eq" data-slot="charm"></div>
+        <h3>Keys</h3><div id="invKeys" class="meta"></div>
+        <h3>Status</h3><div id="invStats" class="meta"></div>
+      </div>
+      <div class="slots" id="slots"></div>
+      <div class="detail" id="detail"><p class="meta">Select an item.</p></div>
+    </div>
+    <p class="meta">Tab to close.</p>
+  </div>
+</div>
+
+<!-- Death -->
+<div id="death" class="screen hidden">
+  <div class="panel center">
+    <h1 class="dead">YOU DIED</h1>
+    <p id="deathCause" class="sub"></p>
+    <div id="deathStats" class="stats"></div>
+    <button id="bAgain">Descend Again (new dungeon)</button>
+    <button id="bDMenu">Main Menu</button>
+  </div>
+</div>
+
+<!-- Ending sequence -->
+<div id="ending" class="hidden"><div id="endText"></div></div>
+
+<!-- Click to resume -->
+<div id="clickResume" class="screen hidden"><div class="panel center"><h2>Click to continue</h2><p class="meta">Mouse look is captured while you play.</p></div></div>
+
+<!-- Load error -->
+<div id="fatal" class="screen hidden"><div class="panel center"><h2>Could not start</h2><p id="fatalMsg"></p></div></div>
+
+<!-- three.js is loaded from a CDN (pinned version). For offline play see README.md ("Offline mode"). -->
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js" } }
+</script>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

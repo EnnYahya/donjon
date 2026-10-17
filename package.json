@@ -1,0 +1,10 @@
+{
+  "name": "abyss-of-the-elden-ring",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "A 50-floor procedural 3D horror dungeon game for the browser (Three.js).",
+  "scripts": {
+    "start": "python3 -m http.server 8000",
+    "test": "node tests/dungeon-test.mjs"
+  }
+}
