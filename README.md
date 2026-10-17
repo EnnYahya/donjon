@@ -47,7 +47,7 @@ Use Chrome, Edge or Firefox on a desktop computer with a mouse and keyboard.
 | Q | Quick heal |
 | R | Refuel lantern with Lantern Oil |
 | T | Light a Pitch Torch |
-| M | Map of the areas you have explored (stairs are marked in purple once seen) |
+| M | Map of the areas you have explored (the stairs are never marked: look for the purple glow) |
 | H | Sense the stairs: shows a purple arrow and distance for 8 seconds |
 | Tab | Open pack / inventory |
 | Esc | Pause |
@@ -100,6 +100,7 @@ js/rng.js             seeded random number generator
 js/dungeon.js         procedural floor generation + solvability validation (pure logic)
 js/world.js           turns a floor grid into 3D geometry, lights, doors, collision
 js/textures.js        procedural canvas textures (stone, wood, blood, runes ...)
+js/geometry.js        rounded / rough-hewn blocks and the chest model
 js/player.js          first-person movement, stamina, noise, light, damage
 js/monsters.js        all monsters, AI state machine, 3D bodies, boss attacks
 js/pathfinding.js     grid BFS pathfinding and line of sight
@@ -139,3 +140,5 @@ By default `index.html` loads Three.js 0.170.0 from jsDelivr. To play without in
 
 ## Credits
 Three.js is released under the MIT License.
+
+nekomen was here
