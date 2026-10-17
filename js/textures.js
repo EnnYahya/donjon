@@ -135,6 +135,15 @@ function sigilTex() {
   g.beginPath(); for (let i = 0; i < 6; i++) { const a = i / 6 * 6.283; g.lineTo(256 + Math.cos(a) * 120, 256 + Math.sin(a) * 120); } g.closePath(); g.stroke();
   return c;
 }
+function beamTex() {
+  const c = mk(64, 256), g = c.getContext('2d');
+  const h = g.createLinearGradient(0, 0, 64, 0); h.addColorStop(0, 'rgba(255,255,255,0)'); h.addColorStop(0.5, 'rgba(255,255,255,0.95)'); h.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = h; g.fillRect(0, 0, 64, 256);
+  g.globalCompositeOperation = 'destination-in';
+  const v = g.createLinearGradient(0, 0, 0, 256); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(0.25, 'rgba(0,0,0,1)'); v.addColorStop(0.8, 'rgba(0,0,0,1)'); v.addColorStop(1, 'rgba(0,0,0,0.5)');
+  g.fillStyle = v; g.fillRect(0, 0, 64, 256);
+  return c;
+}
 function plateTex(alarm) {
   const s = 128, c = mk(s), g = c.getContext('2d');
   g.fillStyle = alarm ? '#5a3a30' : '#6e6a5e'; g.fillRect(0, 0, s, s);
@@ -154,6 +163,7 @@ export function getTex(name) {
   else if (name === 'chest') c = chestTex();
   else if (name === 'blood') { c = bloodTex(); rep = false; }
   else if (name === 'glow') { c = glowTex(); rep = false; }
+  else if (name === 'beam') { c = beamTex(); rep = false; }
   else if (name === 'sigil') { c = sigilTex(); rep = false; }
   else if (name === 'plate') { c = plateTex(false); rep = false; }
   else if (name === 'alarmplate') { c = plateTex(true); rep = false; }

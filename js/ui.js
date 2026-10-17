@@ -59,6 +59,25 @@ export class UI {
     const bt = Object.keys(p.buffs).filter(b => names[b]).map(b => `${names[b]} ${Math.ceil(p.buffs[b])}s`).join(' · ');
     if (this.last.b !== bt) { e.buffs.textContent = bt; this.last.b = bt; }
   }
+  compass(show, angle, dist) {
+    const c = $('compass'); if (!show) { if (!c.classList.contains('hidden')) c.classList.add('hidden'); return; }
+    c.classList.remove('hidden'); $('compassArrow').style.transform = `rotate(${angle}rad)`; $('compassDist').textContent = Math.round(dist) + ' m';
+  }
+  drawMap(game) {
+    const w = game.world, cv = $('mapCanvas'), g = cv.getContext('2d'), p = game.player; if (!w.explored) return;
+    const cs = Math.max(2, Math.floor(Math.min(cv.width / w.w, cv.height / w.h))), ox = Math.floor((cv.width - cs * w.w) / 2), oy = Math.floor((cv.height - cs * w.h) / 2);
+    g.fillStyle = '#080605'; g.fillRect(0, 0, cv.width, cv.height);
+    for (let y = 0; y < w.h; y++) for (let x = 0; x < w.w; x++) {
+      if (!w.explored[y * w.w + x]) continue;
+      const t = w.t[y * w.w + x]; let col = '#4a3c2e';
+      if (t === 0) col = '#1c1612'; else if (t === 2) col = '#8a6a3a'; else if (t === 3) col = '#a03030'; else if (t === 4) col = '#1c1612';
+      g.fillStyle = col; g.fillRect(ox + x * cs, oy + y * cs, cs, cs);
+    }
+    const s = game.data.stairs;
+    if (s && !s.noGate && (w.explored[s.y * w.w + s.x] || w.explored[s.doorY * w.w + s.doorX])) { g.fillStyle = '#c070ff'; g.fillRect(ox + s.x * cs - 1, oy + s.y * cs - 1, cs + 2, cs + 2); }
+    const px = ox + (p.x / 3) * cs, py = oy + (p.z / 3) * cs;
+    g.save(); g.translate(px, py); g.rotate(-p.yaw); g.fillStyle = '#ffd060'; g.beginPath(); g.moveTo(0, -cs * 0.9); g.lineTo(cs * 0.6, cs * 0.6); g.lineTo(-cs * 0.6, cs * 0.6); g.closePath(); g.fill(); g.restore();
+  }
   setFloor(f) {
     this.el.floorLabel.textContent = `FLOOR ${f} / ${MAX_FLOOR}`; this.el.tierLabel.textContent = tierFor(f).name;
   }

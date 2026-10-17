@@ -105,8 +105,8 @@ export class World {
   }
   setBrightness(b) { this.brightness = b; this.ambient.intensity = 0.7 * b; }
 
-  glowSprite(color, scale) {
-    const m = new THREE.SpriteMaterial({ map: getTex('glow'), color, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true });
+  glowSprite(color, scale, noFog) {
+    const m = new THREE.SpriteMaterial({ map: getTex('glow'), color, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: !noFog });
     this.disposables.push(m);
     const s = new THREE.Sprite(m); s.scale.set(scale, scale, 1); return s;
   }
@@ -260,7 +260,17 @@ export class World {
       g.add(step);
     }
     this.group.add(g);
-    const l = new THREE.PointLight(0x30ff70, 5, 8, 2); l.position.set(cx, -1.4, cz); this.group.add(l); this.stairLight = l;
+    // Purple glow so the stairs are easy to spot: a strong light that spills into the corridor,
+    // a glowing core and a tall beam (both ignore fog, so they can be seen far down a straight corridor).
+    const PURPLE = 0xb04cff;
+    const l = new THREE.PointLight(PURPLE, 34, 20, 2); l.position.set(cx, 1.6, cz); this.group.add(l); this.stairLight = l;
+    const core = this.glowSprite(PURPLE, 4.4, true); core.position.set(cx, 1.3, cz); this.group.add(core); this.stairCore = core;
+    const bm = new THREE.SpriteMaterial({ map: getTex('beam'), color: PURPLE, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false, opacity: 0.85 });
+    this.disposables.push(bm);
+    const beam = new THREE.Sprite(bm); beam.scale.set(1.9, this.H * 1.3, 1); beam.position.set(cx, this.H * 0.55, cz); this.group.add(beam);
+    const portal = this.glowSprite(PURPLE, 3, true); portal.position.set(cx, -1.6, cz); this.group.add(portal);
+    this.motes = [];
+    for (let i = 0; i < 8; i++) { const sp = this.glowSprite(0xd8a0ff, 0.22, true); this.group.add(sp); this.motes.push({ sp, ph: i / 8, ox: (Math.random() - 0.5) * 1.4, oz: (Math.random() - 0.5) * 1.4, cx, cz }); }
     this.stairs = { x: cx, z: cz, doorX: (s.doorX + 0.5) * TS, doorZ: (s.doorY + 0.5) * TS };
   }
 
@@ -344,7 +354,11 @@ export class World {
       if (t.state === 'fired') { t.timer += dt; const k = Math.min(1, t.timer * 8); t.spikes.position.y = -0.6 + 0.65 * k; if (t.timer > 1.6) t.spikes.position.y = -0.6 + 0.65 * Math.max(0, 1 - (t.timer - 1.6) * 3); }
     }
     if (this.ring && this.ring.visible) { this.ring.group.rotation.y = time * 0.8; this.ring.group.position.y = 3.4 + Math.sin(time * 1.5) * 0.15; this.ring.light.intensity = (70 + 15 * Math.sin(time * 3)) * b; }
-    if (this.stairLight) this.stairLight.intensity = 4 + Math.sin(time * 2.2) * 1.5;
+    if (this.stairLight) {
+      const k = 0.85 + 0.15 * Math.sin(time * 2.2) + 0.04 * Math.sin(time * 9);
+      this.stairLight.intensity = 34 * k * b; this.stairCore.material.opacity = 0.7 + 0.3 * Math.sin(time * 2.2);
+      for (const m of this.motes) { const u = (time * 0.35 + m.ph) % 1; m.sp.position.set(m.cx + m.ox * (1 - u * 0.4), -1 + u * (this.H + 1.2), m.cz + m.oz * (1 - u * 0.4)); m.sp.material.opacity = Math.sin(u * Math.PI); }
+    }
     if (this.dust) {
       const p = this.dustPos;
       for (let i = 0; i < p.length; i += 3) {

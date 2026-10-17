@@ -263,8 +263,11 @@ function buildFloor(runSeed, floor, attempt) {
   for (let i = 0; i < 8 + floor / 3; i++) { const o = rng.pick(openTiles); blood.push({ x: wc(o.x) + rng.range(-1, 1), z: wc(o.y) + rng.range(-1, 1), s: rng.range(0.8, 2), rot: rng.range(0, 6.28) }); }
   for (const r of rooms) {
     if (r.x1 - r.x0 >= 2 && r.y1 - r.y0 >= 2) {
-      for (const [cx, cy, sx, sy] of [[r.x0, r.y0, 1, 1], [r.x1, r.y0, -1, 1], [r.x0, r.y1, 1, -1], [r.x1, r.y1, -1, -1]])
+      for (const [cx, cy, sx, sy] of [[r.x0, r.y0, 1, 1], [r.x1, r.y0, -1, 1], [r.x0, r.y1, 1, -1], [r.x1, r.y1, -1, -1]]) {
+        // never put a pillar in a corner where a corridor enters the room, so entrances stay wide open
+        if (get(cx - sx, cy) !== T.WALL || get(cx, cy - sy) !== T.WALL) continue;
         props.push({ k: 'pillar', x: wc(cx) + sx * 0.9, z: wc(cy) + sy * 0.9, r: 0 });
+      }
     }
     if (r.kind === 'hall' && !r.lit && rng.chance(0.5)) props.push({ k: 'statue', x: wc(r.mx), z: wc(r.my), r: rng.range(0, 6.28) });
   }
@@ -295,6 +298,10 @@ function buildFloor(runSeed, floor, attempt) {
   }
   if (floor >= 12 && rng.chance(0.5)) { const c = cand.find(o => sepOK(o.x, o.y)); if (c) spawns.push({ type: 'shadow', x: c.x, y: c.y, guard: false }); }
 
+  // Props with a solid collider must never sit on top of the player start, the stairs approach or any monster,
+  // otherwise someone could spawn inside a brazier or statue and be unable to move.
+  const keepClear = [{ x: wc(start.x), z: wc(start.y) }, { x: wc(stairs.doorX), z: wc(stairs.doorY) }, { x: wc(stairs.x), z: wc(stairs.y) }, ...spawns.map(s => ({ x: wc(s.x), z: wc(s.y) }))];
+  const propsOk = props.filter(pr => keepClear.every(c => Math.hypot(c.x - pr.x, c.z - pr.z) > 1.8));
   const doors = [];
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const v = t[y * w + x];
@@ -306,7 +313,7 @@ function buildFloor(runSeed, floor, attempt) {
 
   return {
     floor, seed: runSeed, w, h, tiles: t, height: 3.2, start, startYaw: 0, stairs, doors, rooms, chests, remains,
-    traps, torches, decals, blood, props, altars, spawns, vault, secret, final: null, pillars: [],
+    traps, torches, decals, blood, props: propsOk, altars, spawns, vault, secret, final: null, pillars: [],
     visSeed: hash(runSeed, floor * 977 + 5), dist,
   };
 }

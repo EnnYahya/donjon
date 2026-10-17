@@ -1,6 +1,6 @@
 // Game: owns the renderer, the run state machine, floor loading, interaction, death and the ending.
 import * as THREE from 'three';
-import { TS, T, MAX_FLOOR, tierFor, tierIndex } from './config.js';
+import { TS, T, MAX_FLOOR, PLAYER_R, tierFor, tierIndex } from './config.js';
 import { RNG, hash, newSeed } from './rng.js';
 import { generateFloor } from './dungeon.js';
 import { World } from './world.js';
@@ -67,6 +67,8 @@ export class Game {
       if (!e.repeat) {
         inp.pressed.add(e.code);
         if (e.code === 'Tab') this.toggleInventory();
+        else if (e.code === 'KeyM' && this.state === 'playing') this.toggleMap();
+        else if (e.code === 'KeyH' && this.state === 'playing' && this.settings.compass !== 'off') { this.hintUntil = this.time + 8; this.ui.toast('You sense where the stairs are...', '#c070ff'); }
         else if (e.code === 'Escape') { if (this.state === 'inventory') this.toggleInventory(); else if (this.state === 'paused' && !$('pause').classList.contains('hidden')) this.resume(); }
       }
       inp.keys.add(e.code);
@@ -122,13 +124,13 @@ export class Game {
       const el = $(id), v = vid && $(vid);
       el.addEventListener('input', () => { S[key] = type === 'bool' ? el.checked : type === 'str' ? el.value : parseFloat(el.value); if (v) v.textContent = fmt(S[key]); this.applySettings(); });
     };
-    bind('sSens', 'sens', 'vSens', v => v.toFixed(2)); bind('sVol', 'volume', 'vVol', v => Math.round(v * 100) + '%'); bind('sBri', 'brightness', 'vBri', v => v.toFixed(2)); bind('sSmooth', 'smooth', 'vSmooth', v => v <= 0 ? 'off' : Math.round(v * 100) + '%');
+    bind('sSens', 'sens', 'vSens', v => v.toFixed(2)); bind('sVol', 'volume', 'vVol', v => Math.round(v * 100) + '%'); bind('sBri', 'brightness', 'vBri', v => v.toFixed(2)); bind('sSmooth', 'smooth', 'vSmooth', v => v <= 0 ? 'off' : Math.round(v * 100) + '%'); bind('sCompass', 'compass', null, null, 'str');
     bind('sQual', 'quality', null, null, 'str'); bind('sShadow', 'shadows', null, null, 'bool'); bind('sFx', 'effects', null, null, 'bool'); bind('sInv', 'invMode', null, null, 'str');
   }
   openSettings() {
     const S = this.settings;
     $('sSens').value = S.sens; $('vSens').textContent = S.sens.toFixed(2); $('sVol').value = S.volume; $('vVol').textContent = Math.round(S.volume * 100) + '%';
-    $('sSmooth').value = S.smooth; $('vSmooth').textContent = S.smooth <= 0 ? 'off' : Math.round(S.smooth * 100) + '%';
+    $('sCompass').value = S.compass; $('sSmooth').value = S.smooth; $('vSmooth').textContent = S.smooth <= 0 ? 'off' : Math.round(S.smooth * 100) + '%';
     $('sBri').value = S.brightness; $('vBri').textContent = S.brightness.toFixed(2); $('sQual').value = S.quality; $('sShadow').checked = S.shadows; $('sFx').checked = S.effects; $('sInv').value = S.invMode;
     this.ui.screen('settings');
   }
@@ -148,7 +150,10 @@ export class Game {
     this.combat.refreshViewmodel();
     this.loadFloor(start, true);
     this.ui.toast('A new dungeon takes shape. Seed ' + seed, '#8a8070');
-    if (start === 1) setTimeout(() => this.ui.toast('Listen. Something is down here with you.', '#a89880'), 2600);
+    if (start === 1) {
+      setTimeout(() => this.ui.toast('Listen. Something is down here with you.', '#a89880'), 2600);
+      setTimeout(() => this.ui.toast('Find the PURPLE glowing stairs to descend. M = map, H = sense the stairs.', '#c070ff'), 6200);
+    }
     this.beginPlay();
   }
   continueRun() {
@@ -193,6 +198,25 @@ export class Game {
     this.state = 'menu'; this.ui.hud(false); this.ui.boss(null); this.renderer.clear();
     this.ui.menuInfo(this.meta, this.run && !this.player.dead ? Save.loadRun() : Save.loadRun()); this.ui.screen('menu');
   }
+  toggleMap() { this.mapOpen = !this.mapOpen; $('mapView').classList.toggle('hidden', !this.mapOpen); this.audio.play('inv'); if (this.mapOpen) this.ui.drawMap(this); }
+  markExplored() {
+    const w = this.world, p = this.player; if (!w.explored) w.explored = new Uint8Array(w.w * w.h);
+    const tx = Math.floor(p.x / TS), ty = Math.floor(p.z / TS);
+    const mark = (x, y) => { if (x >= 0 && y >= 0 && x < w.w && y < w.h) w.explored[y * w.w + x] = 1; };
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) mark(tx + dx, ty + dy);
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) for (let i = 2; i <= 5; i++) { const x = tx + dx * i, y = ty + dy * i; mark(x, y); if (w.blocked(x, y)) break; }
+  }
+  updateCompass() {
+    const p = this.player, w = this.world, S = this.settings;
+    let target = null;
+    if (w.stairs) target = w.stairs; else if (w.ring && w.ring.visible) target = w.ring;
+    const auto = this.floorTime > (this.run.floor <= 3 ? 120 : 360);
+    const show = !!target && S.compass !== 'off' && (S.compass === 'always' || auto || this.time < this.hintUntil);
+    if (!show) { this.ui.compass(false); return; }
+    const dx = target.x - p.x, dz = target.z - p.z, yaw = this.camYaw === undefined ? p.yaw : this.camYaw;
+    const fx = -Math.sin(yaw), fz = -Math.cos(yaw), rx = Math.cos(yaw), rz = -Math.sin(yaw);
+    this.ui.compass(true, Math.atan2(dx * rx + dz * rz, dx * fx + dz * fz), Math.hypot(dx, dz));
+  }
   toggleInventory() {
     if (this.state === 'playing') {
       this.state = 'inventory'; this.ui.sel = -1; this.ui.renderInventory(); this.ui.screen('inv'); this.audio.play('inv');
@@ -221,9 +245,17 @@ export class Game {
     this.scene.add(world.group);
     this.scene.fog = new THREE.FogExp2(tier.fog, tier.fogD); this.renderer.setClearColor(tier.fog);
     world.setBrightness(s.brightness); world.setShadows(this.renderer.shadowMap.enabled);
+    // An unlocked stairs gate starts open, so the purple glow is visible from down the corridor.
+    if (data.stairs && !data.stairs.noGate) { const sd = data.stairs, door = world.doorAt(sd.doorX, sd.doorY); if (door && !door.locked) { door.open = true; door.t = 1; } }
+    this.floorTime = 0; this.hintUntil = 0; this.mapOpen = false; $('mapView').classList.add('hidden');
     this.monsters.load(world, data, n, this.meta.cycles);
     const p = this.player;
     p.x = (data.start.x + 0.5) * TS; p.z = (data.start.y + 0.5) * TS; p.vx = p.vz = 0; p.dodge = null;
+    // Safety net: if anything solid overlaps the start position, step to the nearest free spot.
+    if (world.collides(p.x, p.z, PLAYER_R)) {
+      const bx = p.x, bz = p.z; let found = false;
+      for (let r = 0.4; r <= 3 && !found; r += 0.4) for (let a = 0; a < 6.28 && !found; a += 0.5) { const nx = bx + Math.cos(a) * r, nz = bz + Math.sin(a) * r; if (!world.collides(nx, nz, PLAYER_R)) { p.x = nx; p.z = nz; found = true; } }
+    }
     // face along an open direction
     let yaw = 0;
     for (const [dx, dz] of [[0, 1], [1, 0], [0, -1], [-1, 0]]) if (data.final ? dz === -1 : world.tile(data.start.x + dx, data.start.y + dz) === T.FLOOR) { yaw = Math.atan2(-dx, -dz); break; }
@@ -446,7 +478,7 @@ export class Game {
   stepSim(seconds, controllable = true) { for (let t = 0; t < seconds; t += 1 / 30) this.tick(1 / 30, controllable); }   // used by tests
   tick(dt, controllable) {
     const p = this.player, w = this.world, inp = this.input;
-    this.time += dt; if (controllable) this.run.time += dt;
+    this.time += dt; if (controllable) { this.run.time += dt; this.floorTime += dt; }
     if (controllable) {
       p.update(dt, inp, w);
       if (inp.mouse[0]) this.combat.attack();
@@ -458,6 +490,8 @@ export class Game {
       if (it && inp.pressed.has('KeyE')) this.interact(it);
     } else { inp.dx = inp.dy = 0; p.vx *= 0.9; p.vz *= 0.9; if (this.state === 'dead') this.dead.t += dt; }
     w.update(dt, this.time, p.x, p.eye, p.z);
+    this.markExplored(); this.updateCompass();
+    if (this.mapOpen) { this.mapT = (this.mapT || 0) - dt; if (this.mapT <= 0) { this.mapT = 0.15; this.ui.drawMap(this); } }
     this.combat.update(dt, inp);
     this.monsters.update(dt, this);
     this.updateTraps(dt); this.updateDrops(dt);
