@@ -33,7 +33,7 @@ export class Game {
     this.state = 'menu'; this.locked = false; this.time = 0; this.world = null; this.data = null; this.run = null;
     this.timers = []; this.drops = []; this.lootRng = new RNG(1); this.urlSeed = params.get('seed') ? parseInt(params.get('seed'), 10) >>> 0 : null;
     this.noLock = params.has('nolock'); this.god = params.has('god'); this.last = performance.now();
-    this.dead = { t: 0 };
+    this.dead = { t: 0 }; this.dynScale = 1; this.perfT = 0; this.perfN = 0; this.perfCool = 0; this.camYaw = undefined; this.camPitch = 0;
     this.applySettings(); this.bindEvents(); this.bindMenu();
     this.ui.menuInfo(this.meta, Save.loadRun());
     this.ui.screen('menu');
@@ -45,7 +45,8 @@ export class Game {
   applySettings() {
     const s = this.settings, r = this.renderer;
     const dpr = window.devicePixelRatio || 1;
-    r.setPixelRatio(s.quality === 'low' ? 0.5 : s.quality === 'medium' ? Math.min(dpr, 1) : Math.min(dpr, 2));
+    const base = s.quality === 'low' ? 0.5 : s.quality === 'medium' ? Math.min(dpr, 1) : Math.min(dpr, 2);
+    r.setPixelRatio(base * (this.dynScale || 1));          // dynScale: automatic resolution drop when the frame rate is low
     r.setSize(window.innerWidth, window.innerHeight, false);
     this.camera.aspect = window.innerWidth / window.innerHeight; this.camera.updateProjectionMatrix();
     this.camera.far = s.quality === 'low' ? 55 : 90; this.camera.updateProjectionMatrix();
@@ -79,7 +80,14 @@ export class Game {
     });
     window.addEventListener('mouseup', (e) => { inp.mouse[e.button] = false; });
     window.addEventListener('contextmenu', (e) => e.preventDefault());
-    window.addEventListener('mousemove', (e) => { if (this.locked || this.noLock) { inp.dx += e.movementX || 0; inp.dy += e.movementY || 0; } });
+    // Mouse look is applied the instant the event arrives (not once per frame), so turning feels direct.
+    window.addEventListener('mousemove', (e) => {
+      if (this.state !== 'playing' || !(this.locked || this.noLock)) return;
+      const dx = e.movementX || 0, dy = e.movementY || 0;
+      if (Math.abs(dx) > 300 || Math.abs(dy) > 300) return;          // ignore the rare huge spike some browsers emit
+      const p = this.player, k = 0.0022 * this.settings.sens;
+      p.yaw -= dx * k; p.pitch = Math.max(-1.35, Math.min(1.35, p.pitch - dy * k));
+    });
     document.addEventListener('pointerlockchange', () => {
       this.locked = document.pointerLockElement === this.canvas;
       if (!this.locked && this.state === 'playing' && !this.noLock) this.pause();
@@ -89,7 +97,12 @@ export class Game {
     window.addEventListener('pagehide', () => this.saveRunState());
     document.addEventListener('visibilitychange', () => { if (document.hidden) { this.saveRunState(); if (this.state === 'playing') this.pause(); } });
   }
-  requestLock() { if (this.noLock) return; try { const r = this.canvas.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (e) { /* ignored */ } }
+  requestLock() {
+    if (this.noLock) return;
+    // Ask for raw (unaccelerated) mouse movement; fall back to the normal lock if the browser refuses.
+    const plain = () => { try { const r = this.canvas.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (e) { /* ignored */ } };
+    try { const r = this.canvas.requestPointerLock({ unadjustedMovement: true }); if (r && r.catch) r.catch(plain); } catch (e) { plain(); }
+  }
   bindMenu() {
     const ui = this.ui, on = (id, fn) => $(id).addEventListener('click', () => { this.audio.init(); this.audio.play('click'); fn(); });
     this.menuReturn = 'menu';
@@ -109,12 +122,13 @@ export class Game {
       const el = $(id), v = vid && $(vid);
       el.addEventListener('input', () => { S[key] = type === 'bool' ? el.checked : type === 'str' ? el.value : parseFloat(el.value); if (v) v.textContent = fmt(S[key]); this.applySettings(); });
     };
-    bind('sSens', 'sens', 'vSens', v => v.toFixed(2)); bind('sVol', 'volume', 'vVol', v => Math.round(v * 100) + '%'); bind('sBri', 'brightness', 'vBri', v => v.toFixed(2));
+    bind('sSens', 'sens', 'vSens', v => v.toFixed(2)); bind('sVol', 'volume', 'vVol', v => Math.round(v * 100) + '%'); bind('sBri', 'brightness', 'vBri', v => v.toFixed(2)); bind('sSmooth', 'smooth', 'vSmooth', v => v <= 0 ? 'off' : Math.round(v * 100) + '%');
     bind('sQual', 'quality', null, null, 'str'); bind('sShadow', 'shadows', null, null, 'bool'); bind('sFx', 'effects', null, null, 'bool'); bind('sInv', 'invMode', null, null, 'str');
   }
   openSettings() {
     const S = this.settings;
     $('sSens').value = S.sens; $('vSens').textContent = S.sens.toFixed(2); $('sVol').value = S.volume; $('vVol').textContent = Math.round(S.volume * 100) + '%';
+    $('sSmooth').value = S.smooth; $('vSmooth').textContent = S.smooth <= 0 ? 'off' : Math.round(S.smooth * 100) + '%';
     $('sBri').value = S.brightness; $('vBri').textContent = S.brightness.toFixed(2); $('sQual').value = S.quality; $('sShadow').checked = S.shadows; $('sFx').checked = S.effects; $('sInv').value = S.invMode;
     this.ui.screen('settings');
   }
@@ -213,7 +227,7 @@ export class Game {
     // face along an open direction
     let yaw = 0;
     for (const [dx, dz] of [[0, 1], [1, 0], [0, -1], [-1, 0]]) if (data.final ? dz === -1 : world.tile(data.start.x + dx, data.start.y + dz) === T.FLOOR) { yaw = Math.atan2(-dx, -dz); break; }
-    p.yaw = yaw; p.pitch = 0;
+    p.yaw = yaw; p.pitch = 0; this.camYaw = undefined;
     this.ui.setFloor(n); this.audio.setTier(tierIndex(n));
     if (!first || true) this.ui.banner(n === MAX_FLOOR ? 'FLOOR 50' : `FLOOR ${n}`, tier.name, 4200);
     this.saveRunState();
@@ -411,6 +425,15 @@ export class Game {
     requestAnimationFrame((t) => this.frame(t));
     let dt = Math.min(0.05, (now - this.last) / 1000); this.last = now;
     const st = this.state;
+    // Automatic resolution scaling: if the frame rate is low, render fewer pixels so turning stays fluid.
+    if (st === 'playing') {
+      this.perfT += dt; this.perfN++; this.perfCool -= dt;
+      if (this.perfT >= 1.5) {
+        const avg = this.perfT / this.perfN; this.perfT = 0; this.perfN = 0;
+        if (avg > 0.026 && this.dynScale > 0.5 && this.perfCool <= 0) { this.dynScale = Math.max(0.5, this.dynScale * 0.85); this.perfCool = 4; this.applySettings(); }
+        else if (avg < 0.0155 && this.dynScale < 1 && this.perfCool <= 0) { this.dynScale = Math.min(1, this.dynScale / 0.9); this.perfCool = 8; this.applySettings(); }
+      }
+    }
     if (this.world && st !== 'menu') {
       if (st === 'playing' || st === 'dead' || st === 'ending') this.tick(dt, st === 'playing');
       else if (st === 'inventory' && this.settings.invMode === 'slow') this.tick(dt * 0.12, false);
@@ -476,9 +499,14 @@ export class Game {
     let y = p.eye + bob, roll = 0, pitch = p.pitch;
     if (this.state === 'dead') { const k = Math.min(1, this.dead.t / 1.4); y = p.eye * (1 - 0.8 * k); roll = 1.2 * k; pitch = p.pitch * (1 - k) - 0.3 * k; }
     c.position.set(p.x + (Math.random() - 0.5) * sh, y + (Math.random() - 0.5) * sh, p.z + (Math.random() - 0.5) * sh);
-    c.rotation.set(pitch, p.yaw, roll, 'YXZ');
+    // Gentle turn smoothing (setting "Turn smoothing"): the view eases toward where the mouse is aiming.
+    const sm = this.settings.smooth, rate = sm > 0 ? 70 - 55 * Math.min(1, sm) : 0;
+    if (this.camYaw === undefined || !rate || this.state !== 'playing') { this.camYaw = p.yaw; this.camPitch = pitch; }
+    else { const k = 1 - Math.exp(-rate * dt); this.camYaw += (p.yaw - this.camYaw) * k; this.camPitch += (pitch - this.camPitch) * k; }
+    const yaw = this.camYaw; pitch = this.camPitch;
+    c.rotation.set(pitch, yaw, roll, 'YXZ');
     // lantern light sits just left of and below the eyes
-    const rx = Math.cos(p.yaw), rz = -Math.sin(p.yaw), fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw);
+    const rx = Math.cos(yaw), rz = -Math.sin(yaw), fx = -Math.sin(yaw), fz = -Math.cos(yaw);
     this.world.pLight.position.set(c.position.x - rx * 0.3 + fx * 0.3, c.position.y - 0.15, c.position.z - rz * 0.3 + fz * 0.3);
     if (this.state === 'dead') this.world.pLight.intensity *= Math.max(0.1, 1 - this.dead.t * 0.4);
   }

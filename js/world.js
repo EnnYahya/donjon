@@ -63,7 +63,7 @@ export class World {
     const M = (map, extra = {}) => { const m = new THREE.MeshLambertMaterial({ map, ...extra }); m.color.multiply(tint); this.disposables.push(m); return m; };
     this.M = M;
     // lights
-    this.ambient = new THREE.AmbientLight(tier.amb, 0.45); this.group.add(this.ambient);
+    this.ambient = new THREE.AmbientLight(tier.amb, 0.7); this.group.add(this.ambient);
     this.pLight = new THREE.PointLight(0xffc27a, 60, 16, 2); this.group.add(this.pLight);
     this.pool = [];
     for (let i = 0; i < 4; i++) { const l = new THREE.PointLight(tier.torch, 0, 13, 2); this.group.add(l); this.pool.push(l); }
@@ -103,7 +103,7 @@ export class World {
     this.pLight.castShadow = on;
     if (on) { this.pLight.shadow.mapSize.set(512, 512); this.pLight.shadow.camera.near = 0.2; this.pLight.shadow.camera.far = 18; this.pLight.shadow.bias = -0.003; }
   }
-  setBrightness(b) { this.brightness = b; this.ambient.intensity = 0.45 * b; }
+  setBrightness(b) { this.brightness = b; this.ambient.intensity = 0.7 * b; }
 
   glowSprite(color, scale) {
     const m = new THREE.SpriteMaterial({ map: getTex('glow'), color, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true });
@@ -315,12 +315,22 @@ export class World {
       if (d2 < 900) near.push(t);
     }
     near.sort((a, c) => a.d2 - c.d2);
-    for (let i = 0; i < 4; i++) {
-      const l = this.pool[i], t = near[i];
-      // Lights are never hidden: toggling visibility forces a shader recompile (stutter). Unused lights just go dark.
-      if (!t) { l.intensity = 0; continue; }
-      l.position.set(t.x, t.y, t.z); l.intensity = (t.strong ? 55 : 28) * t.fl * b; l.color.setHex(t.color);
+    // Each light slot keeps its torch and crossfades when a torch drops out of the nearest four,
+    // so light never "pops" from one wall to another while you walk or turn.
+    const want = near.slice(0, 4);
+    if (!this.slots) this.slots = this.pool.map(() => ({ t: null, lvl: 0 }));
+    for (const s of this.slots) {
+      const keep = s.t && want.includes(s.t);
+      s.lvl = keep ? Math.min(1, s.lvl + dt * 4) : Math.max(0, s.lvl - dt * 4);
+      if (!keep && s.lvl <= 0) s.t = null;
     }
+    for (const t of want) if (!this.slots.some(s => s.t === t)) { const free = this.slots.find(s => !s.t); if (free) { free.t = t; free.lvl = 0; } }
+    this.pool.forEach((l, i) => {
+      // Lights are never hidden: toggling visibility forces a shader recompile (stutter). Unused lights just go dark.
+      const s = this.slots[i], t = s.t;
+      if (!t) { l.intensity = 0; return; }
+      l.position.set(t.x, t.y, t.z); l.intensity = (t.strong ? 55 : 28) * t.fl * b * s.lvl; l.color.setHex(t.color);
+    });
     // doors
     for (const d of this.doors.values()) {
       const target = d.open ? 1 : 0; d.t += Math.sign(target - d.t) * Math.min(Math.abs(target - d.t), dt * 1.4);

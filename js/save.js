@@ -1,6 +1,6 @@
 // localStorage persistence: settings, meta statistics and the active run (saved on entering a floor).
 const SET = 'abyss_settings_v1', RUN = 'abyss_run_v1', META = 'abyss_meta_v1';
-export const DEFAULT_SETTINGS = { sens: 1, volume: 0.7, quality: 'medium', shadows: false, effects: true, brightness: 1, invMode: 'pause', seenWarning: false };
+export const DEFAULT_SETTINGS = { sens: 1, volume: 0.7, quality: 'medium', shadows: false, effects: true, brightness: 1, smooth: 0.5, invMode: 'pause', seenWarning: false };
 
 const rd = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
 const wr = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* storage unavailable */ } };
