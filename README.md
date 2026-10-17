@@ -47,13 +47,15 @@ Use Chrome, Edge or Firefox on a desktop computer with a mouse and keyboard.
 | Q | Quick heal |
 | R | Refuel lantern with Lantern Oil |
 | T | Light a Pitch Torch |
+| M | Map of the areas you have explored (stairs are marked in purple once seen) |
+| H | Sense the stairs: shows a purple arrow and distance for 8 seconds |
 | Tab | Open pack / inventory |
 | Esc | Pause |
 
 ## Rules of the dungeon
 
 - **Death is final for the run.** You lose your pack, gear and progress and restart on Floor 1 in a *new* dungeon. This is explained on screen before your first run.
-- Reach the stairs on each floor to descend. Stairs may be behind a locked gate: a key is always somewhere reachable on that floor.
+- Reach the **purple glowing stairs** on each floor to descend. They shine with a purple light and a tall beam you can see down long corridors. If you are lost, a purple compass arrow appears on its own after a couple of minutes (Settings → Stairs compass). Stairs may be behind a locked gate: a key is always somewhere reachable on that floor.
 - **Monsters hunt by sight and sound.** Walking is quiet. Sprinting, fighting and opening gates are loud. Crouching is quiet.
 - Hitting an unaware monster is a **backstab** (x2 damage, x3 with a dagger).
 - The lantern burns down. Oil and torches are limited. In the dark, monsters see you less well, and so do you.
@@ -122,8 +124,10 @@ an invalid floor is regenerated with the next attempt.
 ```
 node tests/dungeon-test.mjs
 node --import ./tests/register.mjs tests/smoke.mjs
+node --import ./tests/register.mjs tests/bot.mjs
 ```
 The first generates 2000 floors (40 seeds x 50 floors) and checks solvability and reproducibility.
+The third walks a bot through real doors, keys and collision to the stairs on 720 floors.
 The second runs the real game logic headless (with a stand-in for Three.js) through all 50 floors, every monster type,
 the final boss, the ring ending, inventory, saves, death and restart.
 
