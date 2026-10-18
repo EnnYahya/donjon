@@ -8,6 +8,7 @@ import { Player } from './player.js';
 import { Combat } from './combat.js';
 import { MonsterSys } from './monsters.js';
 import { Scares } from './scares.js';
+import { Hazards } from './hazards.js';
 import { Inventory } from './inventory.js';
 import { ITEMS, RARITY, rollItem, makeStack } from './items.js';
 import { AudioSys } from './audio.js';
@@ -28,7 +29,7 @@ export class Game {
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(75, 1, 0.08, 90); this.scene.add(this.camera);
     this.audio = new AudioSys(); this.inv = new Inventory(); this.player = new Player(this);
-    this.combat = new Combat(this); this.monsters = new MonsterSys(this); this.ui = new UI(this); this.scares = new Scares(this);
+    this.combat = new Combat(this); this.monsters = new MonsterSys(this); this.ui = new UI(this); this.scares = new Scares(this); this.hazards = new Hazards(this);
     this.combat.attachTo(this.camera);
     this.input = { dx: 0, dy: 0, keys: new Set(), pressed: new Set(), mouse: [false, false, false] };
     this.state = 'menu'; this.locked = false; this.time = 0; this.world = null; this.data = null; this.run = null;
@@ -162,6 +163,7 @@ export class Game {
     this.audio.init();
     this.run = { seed: r.seed, floor: r.floor, kills: r.kills || 0, chests: r.chests || 0, time: r.time || 0 };
     this.inv.reset(); this.player.reset(); this.inv.load(r.inv);
+    if (r.lv) for (const k of ['atk', 'def', 'spd', 'vig']) this.player.lv[k] = Math.min(10, r.lv[k] | 0); this.player.points = r.points | 0; this.player.recalc();
     this.player.hpPenalty = r.hpPenalty || 0; this.player.baseMaxHp = 100 + Math.min(25, this.meta.cycles * 5);
     this.player.hp = Math.min(r.hp, this.player.maxHp) || this.player.maxHp; this.player.fuel = r.fuel ?? 100;
     this.combat.refreshViewmodel();
@@ -172,7 +174,7 @@ export class Game {
   saveRunState() {
     if (!this.run || this.state === 'dead' || this.state === 'menu' || this.player.dead) return;
     const p = this.player;
-    Save.saveRun({ v: 1, seed: this.run.seed, floor: this.run.floor, kills: this.run.kills, chests: this.run.chests, time: this.run.time, hp: p.hp, fuel: p.fuel, hpPenalty: p.hpPenalty, inv: this.inv.serialize() });
+    Save.saveRun({ v: 1, seed: this.run.seed, floor: this.run.floor, kills: this.run.kills, chests: this.run.chests, time: this.run.time, hp: p.hp, fuel: p.fuel, hpPenalty: p.hpPenalty, lv: p.lv, points: p.points, inv: this.inv.serialize() });
   }
   beginPlay() {
     this.ui.hideScreens(); this.ui.hud(true); this.state = 'playing'; this.input.keys.clear(); this.input.dx = this.input.dy = 0;
@@ -232,7 +234,7 @@ export class Game {
   // ------------------------------------------------------------------ floors
   loadFloor(n, first) {
     if (this.world) { this.world.dispose(); this.world = null; }
-    this.monsters.clear(); this.combat.clearFx();
+    this.monsters.clear(); this.combat.clearFx(); this.hazards.clear();
     for (const d of this.drops) d.mesh.removeFromParent(); this.drops = []; this.timers = [];
     const data = this.data = generateFloor(this.run.seed, n);
     this.run.floor = n; this.lootRng = new RNG(hash(this.run.seed, n * 17 + 4));
@@ -286,10 +288,11 @@ export class Game {
 
   // ------------------------------------------------------------------ helpers used by other modules
   noise(x, z, r) { this.monsters.hear(x, z, r); }
-  alarmAll() { this.monsters.alarmAll(); }
+  alarmAll() { this.monsters.alertAll(); }
   onEquip(slot) { if (slot === 'weapon') this.combat.refreshViewmodel(); }
   onKill(m) {
     this.run.kills++;
+    { const xp = m.def.xp ?? (m.def.boss ? 4 : m.def.hp >= 150 ? 2 : 1), pl = this.player; pl.points += xp; this.ui.toast(`+${xp} level point${xp > 1 ? 's' : ''}  (Tab to spend)`, '#7ac0ff'); this.audio.play('pickup'); }
     const d = m.def, rng = this.lootRng, out = [];
     if (m.drops) out.push(...m.drops);
     else if (Math.random() < d.drop) {
@@ -504,7 +507,7 @@ export class Game {
     w.update(dt, this.time, p.x, p.eye, p.z);
     this.markExplored(); this.updateCompass();
     if (this.mapOpen) { this.mapT = (this.mapT || 0) - dt; if (this.mapT <= 0) { this.mapT = 0.15; this.ui.drawMap(this); } }
-    this.combat.update(dt, inp);
+    this.combat.update(dt, inp); this.hazards.update(dt);
     this.monsters.update(dt, this);
     if (controllable) this.scares.update(dt);
     this.updateTraps(dt); this.updateDrops(dt);
@@ -519,7 +522,7 @@ export class Game {
     // light
     const lp = p.lightParams(), fl = 0.93 + 0.07 * Math.sin(this.time * 13) * Math.sin(this.time * 7.1);
     const dead = p.fuel <= 0 && !(p.buffs.torch > 0), flick = p.flicker > 0 ? 0.15 : 1;
-    w.pLight.intensity = (dead ? 1.5 : lp.intensity * fl * flick) * this.settings.brightness; w.pLight.distance = this.data.final ? 24 : lp.distance;
+    w.pLight.intensity = (dead ? 1.5 : lp.intensity * fl * flick * (p.status.dim > 0 ? 0.5 : 1)) * this.settings.brightness; w.pLight.distance = this.data.final ? 24 : lp.distance;
     w.pLight.color.setHex(p.buffs.torch > 0 ? 0xffb060 : 0xffc88a);
     this.ui.updateHud(dt);
   }

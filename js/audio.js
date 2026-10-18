@@ -1,5 +1,6 @@
 // Web Audio: every sound is generated procedurally (no audio files needed).
 // Positional sounds use PannerNodes (HRTF) so direction and distance are audible.
+const VOICES = { crawler: 'skitter', archer: 'bone', hound: 'howl', swarm: 'buzz', hanged: 'creak', bloom: 'squelch', gargoyle: 'stone', banshee: 'wail', flayed: 'screech', plague: 'wheeze', grasper: 'squelch', chainer: 'metal', cinder: 'metal', bell: 'bell', devourer: 'gurgle', phase: 'whisper', dimmer: 'buzz', doppel: 'whisper', executioner: 'roar', marrow: 'roar' };
 export class AudioSys {
   constructor() { this.ctx = null; this.vol = 0.7; this.evT = 4; this.silT = 0; }
 
@@ -119,6 +120,10 @@ export class AudioSys {
       case 'knock': for (let i = 0; i < 3; i++) { this.noise({ type: 'lowpass', f: 400, dur: 0.12, vol: 0.4, delay: i * 0.32, pos: p }); this.tone({ type: 'sine', f0: 130, f1: 70, dur: 0.12, vol: 0.35, delay: i * 0.32, pos: p }); } break;
       case 'scratch': for (let i = 0; i < 5; i++) this.noise({ type: 'bandpass', f: 3000 + i * 300, q: 3, dur: 0.22, vol: 0.14, delay: i * 0.12, pos: p }); break;
       case 'moan': this.tone({ type: 'sawtooth', f0: 130, f1: 85, dur: 2.4, vol: 0.2, att: 0.8, lp: 500, vib: 5, pos: p, echo: true }); this.tone({ type: 'sine', f0: 262, f1: 170, dur: 2.4, vol: 0.06, att: 0.9, pos: p, vib: 7 }); break;
+      case 'flask': this.noise({ type: 'bandpass', f: 1500, f1: 600, q: 2, dur: 0.35, vol: 0.2, pos: p }); this.tone({ type: 'sine', f0: 400, f1: 150, dur: 0.25, vol: 0.1, pos: p }); break;
+      case 'creak': this.noise({ type: 'bandpass', f: 500, f1: 900, q: 12, dur: 1.2, vol: 0.18, pos: p, echo: true }); this.tone({ type: 'sawtooth', f0: 90, f1: 130, dur: 1, vol: 0.06, lp: 400, pos: p, vib: 9 }); break;
+      case 'toll': this.tone({ type: 'sine', f0: 196, dur: 3, vol: 0.4, att: 0.01, pos: p, echo: true }); this.tone({ type: 'sine', f0: 392, dur: 2.4, vol: 0.2, pos: p, echo: true }); this.tone({ type: 'sine', f0: 523, dur: 1.6, vol: 0.1, pos: p }); this.noise({ type: 'bandpass', f: 1800, dur: 0.15, vol: 0.2, pos: p }); break;
+      case 'wail': this.tone({ type: 'sawtooth', f0: 600, f1: 1700, dur: 1.4, vol: 0.28, att: 0.1, vib: 35, lp: 4000, pos: p, echo: true }); this.tone({ type: 'sine', f0: 300, f1: 850, dur: 1.4, vol: 0.2, att: 0.1, vib: 20, pos: p }); this.noise({ type: 'highpass', f: 3000, dur: 1.2, vol: 0.2, pos: p }); break;
       case 'secret': this.noise({ type: 'bandpass', f: 1800, dur: 0.5, vol: 0.12, pos: p }); break;
     }
   }
@@ -126,9 +131,31 @@ export class AudioSys {
     if (!this.ctx) return; const v = 0.12 + 0.25 * k;
     this.tone({ type: 'sine', f0: 60, f1: 38, dur: 0.18, vol: v }); this.tone({ type: 'sine', f0: 55, f1: 34, dur: 0.2, vol: v * 0.8, delay: 0.22 });
   }
+  // voices of the extra monsters, grouped by sound flavour
+  voiceB(f, kind, p) {
+    const k = kind === 'die' ? 2 : kind === 'attack' || kind === 'alert' ? 1 : 0.6;
+    switch (f) {
+      case 'skitter': for (let i = 0; i < 4; i++) this.noise({ type: 'bandpass', f: 2800 + i * 400, q: 4, dur: 0.05, vol: 0.12 * k, delay: i * 0.05, pos: p }); if (kind === 'alert' || kind === 'attack') this.tone({ type: 'sawtooth', f0: 900, f1: 500, dur: 0.3, vol: 0.12, lp: 2500, vib: 30, pos: p }); break;
+      case 'bone': this.noise({ type: 'bandpass', f: 1200, q: 6, dur: 0.12, vol: 0.2 * k, pos: p }); this.tone({ type: 'square', f0: 180, f1: 120, dur: 0.15, vol: 0.08, lp: 700, pos: p }); break;
+      case 'howl': this.tone({ type: 'sawtooth', f0: kind === 'alert' ? 330 : 220, f1: kind === 'alert' ? 620 : 150, dur: kind === 'alert' ? 1.3 : 0.5, vol: 0.2, lp: 1800, vib: 6, pos: p, echo: true }); break;
+      case 'buzz': this.tone({ type: 'sawtooth', f0: 150, f1: 160, dur: 0.7, vol: 0.14, lp: 1200, vib: 55, pos: p }); this.noise({ type: 'bandpass', f: 3500, q: 3, dur: 0.6, vol: 0.1, pos: p }); break;
+      case 'stone': this.noise({ type: 'lowpass', f: 600, dur: 0.4, vol: 0.3, pos: p }); this.tone({ type: 'square', f0: 110, f1: 60, dur: 0.5, vol: 0.14, lp: 400, pos: p }); break;
+      case 'wail': this.tone({ type: 'sawtooth', f0: 500, f1: 900, dur: 1.1, vol: 0.14, att: 0.2, vib: 25, lp: 3000, pos: p, echo: true }); break;
+      case 'roar': this.tone({ type: 'sawtooth', f0: 80, f1: 45, dur: 1.2, vol: 0.28, lp: 350, vib: 7, pos: p, echo: true }); this.noise({ type: 'lowpass', f: 500, dur: 0.8, vol: 0.18, pos: p }); break;
+      case 'wheeze': this.noise({ type: 'bandpass', f: 1400, f1: 900, q: 5, dur: 0.6, vol: 0.14 * k, pos: p }); this.tone({ type: 'triangle', f0: 240, f1: 200, dur: 0.5, vol: 0.06, vib: 14, pos: p }); break;
+      case 'creak': this.noise({ type: 'bandpass', f: 600, f1: 1000, q: 10, dur: 0.8, vol: 0.14, pos: p }); break;
+      case 'squelch': this.noise({ type: 'lowpass', f: 700, f1: 200, dur: 0.5, vol: 0.2 * k, pos: p }); this.tone({ type: 'sine', f0: 120, f1: 60, dur: 0.4, vol: 0.14, pos: p }); break;
+      case 'whisper': this.noise({ type: 'bandpass', f: 2400, f1: 1500, q: 9, dur: 0.9, vol: 0.14 * k, att: 0.3, pos: p, echo: true }); break;
+      case 'metal': this.noise({ type: 'highpass', f: 2500, dur: 0.12, vol: 0.18 * k, pos: p }); this.tone({ type: 'square', f0: 140, f1: 90, dur: 0.3, vol: 0.12, lp: 500, pos: p }); break;
+      case 'bell': this.tone({ type: 'sine', f0: 261, dur: 1.4, vol: 0.22, pos: p, echo: true }); this.tone({ type: 'sine', f0: 523, dur: 1, vol: 0.08, pos: p }); break;
+      case 'screech': this.tone({ type: 'sawtooth', f0: 700, f1: 1500, dur: 0.6, vol: 0.2, att: 0.03, vib: 38, lp: 4000, pos: p, echo: true }); this.noise({ type: 'highpass', f: 3000, dur: 0.5, vol: 0.14, pos: p }); break;
+      case 'gurgle': this.tone({ type: 'sawtooth', f0: 70, f1: 50, dur: 0.9, vol: 0.2, lp: 300, vib: 11, pos: p }); this.noise({ type: 'lowpass', f: 400, f1: 150, dur: 0.8, vol: 0.2, pos: p }); break;
+    }
+  }
   // monster voices: kind = idle | alert | attack | hurt | die
   voice(type, kind, pos) {
     if (!this.ctx) return; const p = pos;
+    const vf = VOICES[type]; if (vf) { this.voiceB(vf, kind, p); return; }
     const big = type === 'guardian' || type === 'final';
     switch (type) {
       case 'hollow': if (kind === 'die') this.tone({ type: 'sawtooth', f0: 90, f1: 30, dur: 1.4, vol: 0.2, lp: 400, pos: p }); else this.tone({ type: 'sawtooth', f0: kind === 'alert' ? 110 : 75, f1: 50, dur: kind === 'alert' ? 1.2 : 1.6, vol: 0.18, lp: 380, vib: 4, pos: p, echo: true }); break;

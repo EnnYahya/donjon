@@ -14,7 +14,7 @@ export class Combat {
     this.vmT = 0; this.sway = { x: 0, y: 0 };
   }
   weapon() { const id = this.g.inv.eq.weapon; return id ? ITEMS[id] : FISTS; }
-  dmgMul() { const p = this.g.player; return (1 + p.charm('dmg')) * (p.buffs.sharp > 0 ? 1.25 : 1); }
+  dmgMul() { const p = this.g.player; return (1 + p.charm('dmg')) * (p.buffs.sharp > 0 ? 1.25 : 1) * (1 + 0.04 * p.lv.atk); }
 
   // ----------------------------------------------------------- viewmodel
   attachTo(camera) { camera.add(this.vm); this.cam = camera; this.refreshViewmodel(); }

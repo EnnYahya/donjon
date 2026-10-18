@@ -2,6 +2,7 @@
 import { PLAYER_R, EYE, EYE_CROUCH } from './config.js';
 import { ITEMS } from './items.js';
 
+export const LV_CAP = 10;
 export class Player {
   constructor(game) { this.g = game; this.reset(); }
   reset() {
@@ -12,12 +13,18 @@ export class Player {
     this.crouching = false; this.sprinting = false; this.exhausted = false; this.blocking = false;
     this.buffs = {}; this.regenQ = []; this.staminaDelay = 0;
     this.dodge = null; this.dodgeCd = 0; this.iframes = 0; this.stagger = 0;
-    this.speedNow = 0; this.kx = 0; this.kz = 0; this.lastBlocked = false; this.shake = 0; this.dead = false; this.hbT = 0; this.flicker = 0;
+    this.lv = { atk: 0, def: 0, spd: 0, vig: 0 }; this.points = 0; this.status = { poison: 0, bleed: 0, burn: 0, slow: 0, dim: 0 }; this.dotAcc = 0; this.dotBy = ''; this.speedNow = 0; this.kx = 0; this.kz = 0; this.lastBlocked = false; this.shake = 0; this.dead = false; this.hbT = 0; this.flicker = 0;
   }
   charm(k) { const c = this.g.inv.eq.charm; const d = c && ITEMS[c].c; return (d && d[k]) || 0; }
   armorDef() { const a = this.g.inv.eq.armor; return a ? ITEMS[a].a : null; }
-  get maxHp() { return Math.max(20, this.baseMaxHp + this.hpPenalty + this.charm('maxHp')); }
-  recalc() { if (this.hp > this.maxHp) this.hp = this.maxHp; }
+  get maxHp() { return Math.max(20, this.baseMaxHp + this.hpPenalty + this.charm('maxHp') + this.lv.vig * 8); }
+  recalc() { this.maxStamina = 100 + this.lv.vig * 5; if (this.hp > this.maxHp) this.hp = this.maxHp; }
+  // level system: every stat is capped so nobody becomes unstoppable
+  spend(stat) {
+    if (this.points <= 0 || this.lv[stat] >= LV_CAP || !(stat in this.lv)) return false;
+    this.lv[stat]++; this.points--; if (stat === 'vig') { this.heal(8); } this.recalc(); return true;
+  }
+  addStatus(k, t, by) { if (t > this.status[k]) this.status[k] = t; if (by && (k === 'poison' || k === 'bleed' || k === 'burn')) this.dotBy = by; }
   heal(n) { this.hp = Math.min(this.maxHp, this.hp + n); }
   noiseMul() {
     const a = this.armorDef(); let m = a && a.noise ? a.noise : 1;
@@ -36,6 +43,14 @@ export class Player {
     // --- look ---
     this.yaw -= input.dx * 0.0022 * g.settings.sens; this.pitch -= input.dy * 0.0022 * g.settings.sens;
     this.pitch = Math.max(-1.35, Math.min(1.35, this.pitch)); input.dx = input.dy = 0;
+    // --- statuses (poison, bleeding, burning, slow, dimmed light) ---
+    const S = this.status; for (const k in S) S[k] = Math.max(0, S[k] - dt);
+    const dps = (S.poison > 0 ? 2.2 : 0) + (S.bleed > 0 ? 3 : 0) + (S.burn > 0 ? 5 : 0);
+    if (dps > 0 && !this.dead) {
+      this.dotAcc += dps * dt;
+      if (this.dotAcc >= 1) { const n = Math.floor(this.dotAcc); this.dotAcc -= n; this.hp -= n; this.killer = this.dotBy || 'a lingering wound'; g.ui.hurtFlash(0.12); if (this.hp <= 0) { this.hp = 0; g.onPlayerDeath(); return; } }
+    }
+    if (S.dim > 0) this.fuel = Math.max(0, this.fuel - 0.6 * dt);
     // --- timers ---
     for (const k in this.buffs) { this.buffs[k] -= dt; if (this.buffs[k] <= 0) delete this.buffs[k]; }
     this.iframes = Math.max(0, this.iframes - dt); this.dodgeCd = Math.max(0, this.dodgeCd - dt); this.stagger = Math.max(0, this.stagger - dt);
@@ -60,6 +75,7 @@ export class Player {
     let speed = this.crouching ? 1.7 : this.blocking ? 1.8 : 3.4;
     if (this.sprinting) speed = 5.6;
     if (this.stagger > 0) speed *= 0.3;
+    speed *= (1 + 0.02 * this.lv.spd) * (this.status.slow > 0 ? 0.6 : 1);
 
     // dodge roll (Space)
     if (input.pressed.has('Space') && !this.dodge && this.dodgeCd <= 0 && this.stamina >= 18 && this.stagger <= 0) {
@@ -121,7 +137,7 @@ export class Player {
     }
     const a = this.armorDef(); if (a) dmg *= 1 - a.def;
     if (this.buffs.iron > 0) dmg *= 0.65;
-    dmg *= 1 + this.charm('take');
+    dmg *= 1 + this.charm('take'); dmg *= 1 - 0.025 * this.lv.def;
     dmg = Math.max(1, Math.round(dmg));
     this.killer = opts.by || 'the dungeon';
     this.hp -= dmg; this.shake = 1; g.ui.hurtFlash(Math.min(1, dmg / 30 + 0.3));

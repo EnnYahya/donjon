@@ -96,7 +96,7 @@ export class World {
       m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true;
       m.castShadow = m.receiveShadow = shadow; this.group.add(m); this.disposables.push(geo); return m;
     };
-    const seg = q === 'low' ? 2 : q === 'high' ? 6 : 4;
+    const seg = q === 'low' ? 2 : q === 'high' ? 5 : 3;
     for (let v = 0; v < 3; v++) inst(roundedBox(TS, H + 0.5, TS, 0.16, seg, q === 'low' ? 0 : 0.07, v * 7.3), S(getTex('wall' + v)), wallT[v], (ob, p) => { ob.position.set((p[0] + 0.5) * TS, H / 2, (p[1] + 0.5) * TS); ob.rotation.set(0, 0, 0); ob.scale.set(1, 1, 1); }, true);
     const flG = new THREE.PlaneGeometry(TS, TS); flG.rotateX(-Math.PI / 2);
     const ceG = new THREE.PlaneGeometry(TS, TS); ceG.rotateX(Math.PI / 2);

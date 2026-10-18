@@ -10,7 +10,6 @@ const pick = (a) => a[Math.floor(Math.random() * a.length)];
 export class Scares {
   constructor(game) {
     this.g = game; this.ph = null; this.hideT = 0; this.hbT = 0; this.floor = 1;
-    this.el = document.getElementById('scare'); this.cv = document.getElementById('scareFace');
     this.reset(1);
   }
   level() { const s = this.g.settings.scares; return s === 'off' ? 0 : s === 'some' ? 1 : 2; }
@@ -18,44 +17,12 @@ export class Scares {
     this.floor = floor; this.removePhantom(); this.hide();
     this.next = rnd(28, 45); this.amb = rnd(9, 16);
   }
-  hide() { this.hideT = 0; if (this.el && this.el.style) this.el.style.opacity = '0'; }
+  hide() { this.hideT = 0; }
   stop() { this.removePhantom(); this.hide(); }
 
-  // ---------- the face that flashes on screen ----------
-  drawFace(v) {
-    try {
-      const c = this.cv; if (!c || !c.getContext) return; const g = c.getContext('2d'); if (!g) return;
-      g.clearRect(0, 0, 512, 512);
-      const face = g.createLinearGradient(0, 40, 0, 470); face.addColorStop(0, '#e2dac4'); face.addColorStop(1, '#4e4838');
-      g.fillStyle = face; g.beginPath(); g.ellipse(256, 250, 150 + v * 14, 205, 0, 0, 6.283); g.fill();
-      g.fillStyle = '#000';
-      for (const s of [-1, 1]) { g.beginPath(); g.ellipse(256 + s * 66, 215, 44, 62 + v * 10, s * 0.18, 0, 6.283); g.fill(); }
-      g.fillStyle = '#ff2a10';
-      for (const s of [-1, 1]) { g.beginPath(); g.arc(256 + s * 66, 225, 7, 0, 6.283); g.fill(); }
-      g.fillStyle = '#000'; g.beginPath(); g.ellipse(244, 300, 8, 16, 0, 0, 6.283); g.ellipse(268, 300, 8, 16, 0, 0, 6.283); g.fill();
-      const mh = 62 + v * 40;
-      g.beginPath(); g.ellipse(256, 385, 84, mh, 0, 0, 6.283); g.fill();
-      g.fillStyle = '#d8d0b8';
-      for (let i = 0; i < 9; i++) {
-        const x = 190 + i * 15, t = 385 - mh * 0.85, b = 385 + mh * 0.85;
-        g.beginPath(); g.moveTo(x, t + 4); g.lineTo(x + 14, t + 4); g.lineTo(x + 7, t + 30 + (i % 3) * 8); g.fill();
-        g.beginPath(); g.moveTo(x, b - 4); g.lineTo(x + 14, b - 4); g.lineTo(x + 7, b - 30 - ((i + 1) % 3) * 8); g.fill();
-      }
-      g.strokeStyle = 'rgba(0,0,0,.55)'; g.lineWidth = 2;
-      for (let i = 0; i < 7; i++) { g.beginPath(); let x = rnd(150, 360), y = rnd(80, 200); g.moveTo(x, y); for (let k = 0; k < 4; k++) { x += rnd(-18, 18); y += rnd(10, 30); g.lineTo(x, y); } g.stroke(); }
-      const hal = g.createRadialGradient(256, 256, 120, 256, 256, 290); hal.addColorStop(0, 'rgba(0,0,0,0)'); hal.addColorStop(1, 'rgba(0,0,0,1)');
-      g.fillStyle = hal; g.fillRect(0, 0, 512, 512);
-    } catch (e) { /* drawing is optional */ }
-  }
-  flash(ms = 240) {
-    const el = this.el; if (!el || !el.style) return;
-    this.drawFace(Math.random());
-    el.style.opacity = '1'; el.style.transform = `scale(${(1 + Math.random() * 0.12).toFixed(2)}) rotate(${((Math.random() - 0.5) * 0.1).toFixed(3)}rad)`;
-    this.hideT = ms / 1000; this.g.ui.hurtFlash(0.4);
-  }
+  // (the old random face-flash was removed on request)
   strike(face = true, sound = 'scream') {
     const g = this.g, p = g.player;
-    if (face) this.flash(rnd(170, 300));
     g.audio.play(sound); p.shake = Math.max(p.shake, 1);
   }
 

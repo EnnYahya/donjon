@@ -5,6 +5,7 @@
 import { RNG, hash } from './rng.js';
 import { T, TS, MAX_FLOOR } from './config.js';
 import { rollChest, rollItem, makeStack } from './items.js';
+import { BEST_TYPES, bestWeight } from './bestiary-data.js';
 
 const D4 = [[1, 0], [0, 1], [-1, 0], [0, -1]];
 export const INSCRIPTION_COUNT = 12;
@@ -54,7 +55,7 @@ function ensureKeys(f) {
 
 function buildFloor(runSeed, floor, attempt) {
   const rng = new RNG(hash(runSeed, floor * 131 + attempt * 7 + 1));
-  const base = Math.min(8 + Math.floor(floor / 3), 21);
+  const base = Math.round(Math.min(8 + Math.floor(floor / 3), 21) * 1.6);   // floors are ~2.5x bigger than before
   const cw = Math.max(6, base + rng.int(-1, 1)), ch = Math.max(6, base + rng.int(-1, 1));
   const w = cw * 2 + 1, h = ch * 2 + 1;
   const t = new Uint8Array(w * h);
@@ -78,8 +79,8 @@ function buildFloor(runSeed, floor, attempt) {
 
   // ---- 2. rooms ----
   const rooms = [];
-  const roomCount = Math.min(2 + Math.floor(floor / 5) + rng.int(0, 2), 9);
-  for (let tries = 0; rooms.length < roomCount && tries < 80; tries++) {
+  const roomCount = Math.min(5 + Math.floor(floor / 3) + rng.int(0, 3), 20);
+  for (let tries = 0; rooms.length < roomCount && tries < 260; tries++) {
     let rw = rng.int(2, 3), rh = rng.int(2, 3);
     if (!rooms.some(r => r.cw === 4) && floor >= 3 && rng.chance(0.25)) { rw = 4; rh = rng.int(3, 4); }
     if (rw > cw - 1 || rh > ch - 1) continue;
@@ -100,7 +101,7 @@ function buildFloor(runSeed, floor, attempt) {
     else if (x % 2 === 1 && y % 2 === 0 && get(x, y - 1) === T.FLOOR && get(x, y + 1) === T.FLOOR) wallsBetween.push([x, y]);
   }
   rng.shuffle(wallsBetween);
-  const loops = Math.floor(wallsBetween.length * (0.05 + 0.08 * rng.next()));
+  const loops = Math.floor(wallsBetween.length * (0.12 + 0.12 * rng.next()));   // more loops = more routes
   for (let i = 0; i < loops; i++) set(wallsBetween[i][0], wallsBetween[i][1], T.FLOOR);
 
   const deg = (x, y) => D4.reduce((n, [dx, dy]) => n + (get(x + dx, y + dy) === T.FLOOR ? 1 : 0), 0);
@@ -225,7 +226,7 @@ function buildFloor(runSeed, floor, attempt) {
   for (const r of rooms) if (r.kind === 'hall' && rng.chance(0.3)) { r.lit = true; props.push({ k: 'brazier', x: wc(r.mx), z: wc(r.my), r: 0 }); }
 
   // ordinary chests
-  const nChests = 3 + Math.floor(floor / 8) + rng.int(0, 2);
+  const nChests = Math.round((3 + Math.floor(floor / 8) + rng.int(0, 2)) * 1.8);
   const mimicP = floor < 2 ? 0 : Math.min(0.04 + floor * 0.005, 0.28);
   const deadLeft = dead.filter(d => dist[d.y * w + d.x] >= 0 && !usedCell.has(d.y * w + d.x));
   for (let i = 0; i < nChests; i++) {
@@ -241,7 +242,7 @@ function buildFloor(runSeed, floor, attempt) {
 
   // ---- 10. remains (searchable skeletons) ----
   const remains = [];
-  const nRem = 3 + Math.floor(floor / 6);
+  const nRem = Math.round((3 + Math.floor(floor / 6)) * 1.6);
   for (let i = 0; i < nRem; i++) {
     const c = pickOpen(3); if (!c) break;
     usedCell.add(c.y * w + c.x);
@@ -252,7 +253,7 @@ function buildFloor(runSeed, floor, attempt) {
   // ---- 11. traps ----
   const traps = [];
   if (floor >= 3) {
-    const nTr = Math.min(2 + Math.floor(floor / 4), 12);
+    const nTr = Math.min(Math.round((2 + Math.floor(floor / 4)) * 1.8), 24);
     const cand = openTiles.filter(o => o.d >= 6 && !inRoom(o.x, o.y));
     rng.shuffle(cand);
     for (const c of cand) {
@@ -270,15 +271,15 @@ function buildFloor(runSeed, floor, attempt) {
   for (const o of openTiles) {
     for (let k = 0; k < 4; k++) {
       if (get(o.x + D4[k][0], o.y + D4[k][1]) !== T.WALL) continue;
-      if (torches.length < 45 && rng.chance(tp)) torches.push({ tx: o.x, ty: o.y, dir: k });
-      else if (decals.length < 22 && rng.chance(0.012)) decals.push({ k: rng.pick(['text', 'text', 'paint', 'glyph']), tx: o.x, ty: o.y, dir: k, n: rng.int(0, INSCRIPTION_COUNT - 1) });
+      if (torches.length < 110 && rng.chance(tp)) torches.push({ tx: o.x, ty: o.y, dir: k });
+      else if (decals.length < 44 && rng.chance(0.012)) decals.push({ k: rng.pick(['text', 'text', 'paint', 'glyph']), tx: o.x, ty: o.y, dir: k, n: rng.int(0, INSCRIPTION_COUNT - 1) });
     }
   }
   // a torch near the start so the player begins in a faintly lit place
   for (let k = 0; k < 4; k++) if (get(start.x + D4[k][0], start.y + D4[k][1]) === T.WALL) { torches.push({ tx: start.x, ty: start.y, dir: k }); break; }
   // scratch marks next to secret doors
   for (const [sx, sy] of secretDoorTiles) for (let k = 0; k < 4; k++) { const nx = sx + D4[k][0], ny = sy + D4[k][1]; if (get(nx, ny) === T.FLOOR) decals.push({ k: 'glyph', tx: nx, ty: ny, dir: (k + 2) % 4, n: 0 }); }
-  for (let i = 0; i < 8 + floor / 3; i++) { const o = rng.pick(openTiles); blood.push({ x: wc(o.x) + rng.range(-1, 1), z: wc(o.y) + rng.range(-1, 1), s: rng.range(0.8, 2), rot: rng.range(0, 6.28) }); }
+  for (let i = 0; i < (8 + floor / 3) * 2; i++) { const o = rng.pick(openTiles); blood.push({ x: wc(o.x) + rng.range(-1, 1), z: wc(o.y) + rng.range(-1, 1), s: rng.range(0.8, 2), rot: rng.range(0, 6.28) }); }
   for (const r of rooms) {
     if (r.x1 - r.x0 >= 2 && r.y1 - r.y0 >= 2) {
       for (const [cx, cy, sx, sy] of [[r.x0, r.y0, 1, 1], [r.x1, r.y0, -1, 1], [r.x0, r.y1, 1, -1], [r.x1, r.y1, -1, -1]]) {
@@ -289,10 +290,10 @@ function buildFloor(runSeed, floor, attempt) {
     }
     if (r.kind === 'hall' && !r.lit && rng.chance(0.5)) props.push({ k: 'statue', x: wc(r.mx), z: wc(r.my), r: rng.range(0, 6.28) });
   }
-  for (let i = 0; i < 3 + floor / 8; i++) { const o = pickOpen(3); if (o) props.push({ k: 'gear', x: wc(o.x) + rng.range(-1, 1), z: wc(o.y) + rng.range(-1, 1), r: rng.range(0, 6.28) }); }
+  for (let i = 0; i < (3 + floor / 8) * 2; i++) { const o = pickOpen(3); if (o) props.push({ k: 'gear', x: wc(o.x) + rng.range(-1, 1), z: wc(o.y) + rng.range(-1, 1), r: rng.range(0, 6.28) }); }
 
   // ---- 13. monsters ----
-  const budget = Math.min(3 + Math.floor(floor * 0.28) + (floor > 20 ? 2 : 0), 16);
+  const budget = Math.min(Math.round((4 + floor * 0.34 + (floor > 20 ? 3 : 0)) * 2.1), 40);   // more monsters every floor
   const minD = floor < 4 ? 10 : 13;
   const sepOK = (x, y) => spawns.every(s => Math.hypot(s.x - x, s.y - y) >= 5);
   if (guardianFloor && !stairs.noGate) {
@@ -300,10 +301,11 @@ function buildFloor(runSeed, floor, attempt) {
     if (get(gx, gy) === T.FLOOR && dist[gy * w + gx] >= 0) spawns.push({ type: 'guardian', x: gx, y: gy, guard: true, mandatory: true });
   }
   const types = [
-    ['hollow', () => floor < 20 ? 50 : 28],
+    ['hollow', () => floor < 12 ? 50 : floor < 25 ? 30 : 16],
     ['stalker', () => floor >= 4 ? 15 + floor * 0.4 : 0],
     ['blind', () => floor >= 6 ? 12 + floor * 0.3 : 0],
     ['warden', () => floor >= 9 ? 4 + floor * 0.2 : 0],
+    ...BEST_TYPES.map(t => [t, () => bestWeight(t, floor)]),
   ];
   const cand = open.filter(o => o.d >= minD); rng.shuffle(cand);
   let placed = 0;

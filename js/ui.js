@@ -2,6 +2,7 @@
 import { ITEMS } from './items.js';
 import { RARITY } from './items.js';
 import { MAX_FLOOR, tierFor } from './config.js';
+import { LV_CAP } from './player.js';
 
 const $ = (id) => document.getElementById(id);
 const SCREENS = ['menu', 'warn', 'settings', 'how', 'credits', 'pause', 'inv', 'death', 'clickResume', 'fatal'];
@@ -56,8 +57,10 @@ export class UI {
     const k = g.inv.keys; const kt = [k.stairs ? 'Iron Key x' + k.stairs : '', k.vault ? 'Bone Key x' + k.vault : ''].filter(Boolean).join('  ');
     if (this.last.k !== kt) { e.gKeys.textContent = kt; this.last.k = kt; }
     const names = { vigor: 'Vigor', sharp: 'Sharpened', hush: 'Hushed', iron: 'Ironskin' };
-    const bt = Object.keys(p.buffs).filter(b => names[b]).map(b => `${names[b]} ${Math.ceil(p.buffs[b])}s`).join(' · ');
-    if (this.last.b !== bt) { e.buffs.textContent = bt; this.last.b = bt; }
+    const sn = { poison: 'Poisoned', bleed: 'Bleeding', burn: 'Burning', slow: 'Slowed', dim: 'Light fading' };
+    const bt = Object.keys(p.buffs).filter(b => names[b]).map(b => `${names[b]} ${Math.ceil(p.buffs[b])}s`).concat(Object.keys(sn).filter(k => p.status[k] > 0).map(k => `<span style="color:#d07060">${sn[k]}</span>`)).join(' · ');
+    if (this.last.b !== bt) { e.buffs.innerHTML = bt; this.last.b = bt; }
+    const ph = $('pointsHud'); if (ph && this.last.pts !== p.points) { this.last.pts = p.points; ph.textContent = p.points > 0 ? `\u2605 ${p.points} level point${p.points > 1 ? 's' : ''} to spend (Tab)` : ''; ph.classList.toggle('hidden', p.points <= 0); }
   }
   compass(show, angle, dist) {
     const c = $('compass'); if (!show) { if (!c.classList.contains('hidden')) c.classList.add('hidden'); return; }
@@ -95,6 +98,14 @@ export class UI {
     $('invKeys').textContent = (inv.keys.stairs || inv.keys.vault) ? `Rusted Iron Key x${inv.keys.stairs}, Bone Key x${inv.keys.vault}` : 'None';
     const a = p.armorDef();
     $('invStats').innerHTML = `Health ${Math.ceil(p.hp)} / ${Math.round(p.maxHp)}<br>Damage taken -${Math.round(((a ? a.def : 0) + (p.buffs.iron > 0 ? 0.35 : 0)) * 100)}%<br>Weapon damage ${Math.round(g.combat.weapon().dmg * g.combat.dmgMul())}<br>Arrows ${inv.count('arrows')}`;
+    $('lvPts').textContent = `(${p.points} point${p.points === 1 ? '' : 's'})`;
+    const lvp = $('lvPanel'); lvp.innerHTML = '';
+    for (const [k, name, tip] of [['atk', 'Attack', '+4% damage'], ['def', 'Defense', '-2.5% damage taken'], ['spd', 'Speed', '+2% move speed'], ['vig', 'Vigor', '+8 health, +5 stamina']]) {
+      const row = document.createElement('div'); row.className = 'lvrow'; row.title = tip + ' per level';
+      row.innerHTML = `<b>${name}</b><span class="pips">${'\u25cf'.repeat(p.lv[k])}${'\u25cb'.repeat(LV_CAP - p.lv[k])}</span>`;
+      const b = document.createElement('button'); b.textContent = '+'; b.disabled = p.points <= 0 || p.lv[k] >= LV_CAP;
+      b.onclick = () => { if (p.spend(k)) { g.audio.play('pickup'); this.renderInventory(); } }; row.appendChild(b); lvp.appendChild(row);
+    }
     const slots = $('slots'); slots.innerHTML = '';
     for (let i = 0; i < inv.max; i++) {
       const s = inv.slots[i], d = document.createElement('div');
