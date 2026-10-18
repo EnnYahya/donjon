@@ -80,5 +80,8 @@ select { background:#150f0c; color:var(--ink); border:1px solid #4a3a2c; padding
 #mapView canvas { display:block; width:min(420px,60vw); height:auto; } #mapView small { color:#6a6054; font-size:11px; }
 
 .credit { margin:22px 0 4px; font-size:22px; letter-spacing:.35em; color:#c8b8a0; text-shadow:0 0 14px rgba(140,20,10,.7); font-style:italic; }
-#scare { position:fixed; inset:0; z-index:45; pointer-events:none; opacity:0; background:#000; display:flex; align-items:center; justify-content:center; overflow:hidden; }
-#scare canvas { height:100vh; width:auto; max-width:none; }
+#pointsHud { position:absolute; left:50%; top:62px; transform:translateX(-50%); color:#7ac0ff; font-size:13px; letter-spacing:.12em; text-shadow:0 0 8px #000; }
+#lvPanel .lvrow { display:flex; align-items:center; gap:6px; margin:4px 0; font-size:13px; color:#cfc6b4; }
+#lvPanel .lvrow b { width:62px; font-weight:normal; } #lvPanel .pips { flex:1; letter-spacing:2px; color:#7ac0ff; font-size:11px; }
+#lvPanel button { padding:1px 9px; min-width:0; font-size:14px; margin:0; }
+#lvPts { color:#7ac0ff; }
