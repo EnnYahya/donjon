@@ -1,7 +1,7 @@
-# Abyss of the Elden Ring
+# Abyss of the Madness Ring
 
 A first-person 3D horror dungeon game that runs in your web browser. Fifty procedurally generated floors,
-sound-hunting monsters, limited light and healing, and a golden ring at the bottom that sends you back to Floor 1.
+sound-hunting monsters, limited light and healing, and a glowing Madness Ring at the bottom that sends you back to Floor 1.
 
 Built with HTML5, CSS3, JavaScript (ES modules), **Three.js** (WebGL) and the **Web Audio API**.
 No images or sound files are needed: every texture, model and sound is generated in code.
@@ -65,7 +65,7 @@ Use Chrome, Edge or Firefox on a desktop computer with a mouse and keyboard.
 - Some chests are **Mimics**, and they look exactly like real chests. Some chests are trapped (they click first: step away). Pressure plates click before they fire.
 - Scratching sounds and scratch marks hint at secret rooms. Walk up to the wall and push it.
 - Floors 10, 20, 30, 40 have a **Floor Guardian** blocking the stairs. Floors 5, 15, 25, 35, 45 have an optional one guarding good loot.
-- Floor 50: defeat the **Elden Guardian**, take the **Elden Ring**, and be returned to Floor 1. Each loop gives you +5 max health (up to +25) and makes monsters stronger.
+- Floor 50: defeat the **Ring Keeper**, take the **Madness Ring**, and be returned to Floor 1. Each loop gives you +5 max health (up to +25) and makes monsters stronger.
 
 ### Monsters
 | Monster | Behaviour |
@@ -77,7 +77,7 @@ Use Chrome, Edge or Firefox on a desktop computer with a mouse and keyboard.
 | The Warden | Armored guard of special rooms. Slow, brutal, well protected. |
 | The Shadow | Appears in the dark, vanishes if you look at it, lunges when you look away. |
 | Floor Guardian | Slam (marked on the floor), charge (stuns itself on walls and pillars), swing. |
-| The Elden Guardian | Final boss: slam, charge, volleys of orbs. Two phases. |
+| The Ring Keeper | Final boss: slam, charge, volleys of orbs. Two phases. |
 
 ---
 
