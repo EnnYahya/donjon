@@ -97,7 +97,7 @@ export class Game {
       if (!this.locked && this.state === 'playing' && !this.noLock) this.pause();
     });
     document.addEventListener('pointerlockerror', () => { if (this.state === 'playing') this.showClickResume(); });
-    $('clickResume').addEventListener('click', () => this.resume());
+    document.addEventListener('mousedown', () => { if (this.state === 'playing' && !this.locked && !this.noLock) this.requestLock(); });
     window.addEventListener('pagehide', () => this.saveRunState());
     document.addEventListener('visibilitychange', () => { if (document.hidden) { this.saveRunState(); if (this.state === 'playing') this.pause(); } });
   }
@@ -183,7 +183,7 @@ export class Game {
     clearTimeout(this.lockT);
     this.lockT = setTimeout(() => { if (this.state === 'playing' && !this.locked && !this.noLock) this.showClickResume(); }, 450);
   }
-  showClickResume() { if (this.state !== 'playing') return; this.state = 'paused'; this.ui.screen('clickResume'); }
+  showClickResume() { /* no more 'click to continue' screen: the game keeps running and any click grabs the mouse */ }
   pause() {
     if (this.state !== 'playing') return;
     this.state = 'paused'; this.saveRunState();
