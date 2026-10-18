@@ -1,6 +1,6 @@
 // Web Audio: every sound is generated procedurally (no audio files needed).
 // Positional sounds use PannerNodes (HRTF) so direction and distance are audible.
-const VOICES = { crawler: 'skitter', archer: 'bone', hound: 'howl', swarm: 'buzz', hanged: 'creak', bloom: 'squelch', gargoyle: 'stone', banshee: 'wail', flayed: 'screech', plague: 'wheeze', grasper: 'squelch', chainer: 'metal', cinder: 'metal', bell: 'bell', devourer: 'gurgle', phase: 'whisper', dimmer: 'buzz', doppel: 'whisper', executioner: 'roar', marrow: 'roar' };
+const VOICES = { crawler: 'skitter', archer: 'bone', hound: 'howl', swarm: 'buzz', hanged: 'creak', bloom: 'squelch', gargoyle: 'stone', banshee: 'wail', flayed: 'screech', plague: 'wheeze', grasper: 'squelch', chainer: 'metal', cinder: 'metal', bell: 'bell', devourer: 'gurgle', phase: 'whisper', dimmer: 'buzz', doppel: 'whisper', executioner: 'roar', marrow: 'roar', revenant: 'wail', siren: 'whisper', alchemist: 'wheeze', watcher: 'buzz', lurker: 'screech', sirenchild: 'wail', flamewraith: 'whisper', ashenone: 'whisper', icecolossus: 'roar', necromancer: 'wheeze', silent: 'none', forgotten: 'whisper', eclipse: 'wail', voidshaper: 'whisper', lastbreath: 'squelch', dreadknight: 'metal', wailing: 'wail', bloodqueen: 'wail', cursedgiant: 'roar', leviathan: 'gurgle' };
 export class AudioSys {
   constructor() { this.ctx = null; this.vol = 0.7; this.evT = 4; this.silT = 0; }
 

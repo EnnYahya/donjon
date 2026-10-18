@@ -6,6 +6,10 @@ const POOL = {
   poison: { color: 0x6cc040, status: 'poison', t: 2.2, by: 'poison' },
   fire:   { color: 0xff6a20, status: 'burn',   t: 1.6, by: 'fire' },
   slime:  { color: 0x4a8a58, status: 'slow',   t: 1.1, by: 'slime' },
+  ice:    { color: 0x9ad8ff, status: 'slow',   t: 1.6, by: 'the frost', slow: true },
+  lava:   { color: 0xff4010, status: 'burn',   t: 2.4, by: 'lava' },
+  water:  { color: 0x2a6a90, status: 'slow',   t: 0.9, by: 'water' },
+  blood:  { color: 0x8a0810, status: 'bleed',  t: 2.0, by: 'blood' },
   spore:  { color: 0xb8e070, status: 'poison', t: 2.0, by: 'spores', slow: true },
 };
 

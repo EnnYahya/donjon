@@ -1,6 +1,6 @@
 // Game: owns the renderer, the run state machine, floor loading, interaction, death and the ending.
 import * as THREE from 'three';
-import { TS, T, MAX_FLOOR, PLAYER_R, tierFor, tierIndex } from './config.js';
+import { TS, T, MAX_FLOOR, PLAYER_R, tierFor, tierIndex, floorName } from './config.js';
 import { RNG, hash, newSeed } from './rng.js';
 import { generateFloor } from './dungeon.js';
 import { World } from './world.js';
@@ -252,7 +252,7 @@ export class Game {
     if (data.stairs && !data.stairs.noGate) { const sd = data.stairs, door = world.doorAt(sd.doorX, sd.doorY); if (door && !door.locked) { door.open = true; door.t = 1; } }
     this.floorTime = 0; this.hintUntil = 0; this.mapOpen = false; $('mapView').classList.add('hidden');
     this.monsters.load(world, data, n, this.meta.cycles);
-    this.scares.reset(n);
+    this.scares.reset(n); this.placeHazards(data, tier, n);
     const p = this.player;
     p.x = (data.start.x + 0.5) * TS; p.z = (data.start.y + 0.5) * TS; p.vx = p.vz = 0; p.dodge = null;
     // Safety net: if anything solid overlaps the start position, step to the nearest free spot.
@@ -269,9 +269,23 @@ export class Game {
       if (data.doors.some(d => d.keyId === need) && !data.chests.some(c => c.contents.some(s => s.id === id))) this.dropItem(id, 1, p.x + Math.sin(yaw) * -1.2, p.z + Math.cos(yaw) * -1.2);
     }
     this.ui.setFloor(n); this.audio.setTier(tierIndex(n));
-    if (!first || true) this.ui.banner(n === MAX_FLOOR ? 'FLOOR 50' : `FLOOR ${n}`, tier.name, 4200);
+    if (!first || true) this.ui.banner(n === MAX_FLOOR ? 'FLOOR 50' : `FLOOR ${n}`, floorName(n) + ' — ' + tier.name, 4200);
     this.saveRunState();
     if (this.meta.bestFloor < n) { this.meta.bestFloor = n; Save.saveMeta(this.meta); }
+  }
+  // Permanent ground hazards for the floor style (ice / lava / water / blood / mix).
+  placeHazards(data, tier, n) {
+    if (!tier.hazard || data.final) return;
+    const rng = new RNG(hash(this.run.seed, n * 31 + 9)), kinds = tier.hazard === 'mix' ? ['lava', 'blood', 'ice', 'water'] : [tier.hazard];
+    const sx = data.start.x, sy = data.start.y, st = data.stairs;
+    for (const r of data.rooms) {
+      if (!rng.chance(0.65)) continue;
+      const cx = (r.x0 + r.x1 + 1) / 2, cy = (r.y0 + r.y1 + 1) / 2;
+      if (Math.abs(cx - sx) + Math.abs(cy - sy) < 5) continue;
+      if (st && Math.abs(cx - st.x) + Math.abs(cy - st.y) < 5) continue;
+      const rad = Math.max(1.1, Math.min(2.2, Math.min(r.x1 - r.x0 + 1, r.y1 - r.y0 + 1) * TS * 0.28));
+      this.hazards.pool(cx * TS + rng.range(-0.6, 0.6), cy * TS + rng.range(-0.6, 0.6), { kind: rng.pick(kinds), r: rad, life: Infinity });
+    }
   }
   async descend() {
     if (this.state !== 'playing') return;
@@ -292,10 +306,10 @@ export class Game {
   onEquip(slot) { if (slot === 'weapon') this.combat.refreshViewmodel(); }
   onKill(m) {
     this.run.kills++;
-    { const xp = m.def.xp ?? (m.def.boss ? 4 : m.def.hp >= 150 ? 2 : 1), pl = this.player; pl.points += xp; this.ui.toast(`+${xp} level point${xp > 1 ? 's' : ''}  (Tab to spend)`, '#7ac0ff'); this.audio.play('pickup'); }
+    if (!m.minion) { const xp = m.def.xp ?? (m.def.boss ? 4 : m.def.hp >= 150 ? 2 : 1), pl = this.player; pl.points += xp; this.ui.toast(`+${xp} level point${xp > 1 ? 's' : ''}  (Tab to spend)`, '#7ac0ff'); this.audio.play('pickup'); }
     const d = m.def, rng = this.lootRng, out = [];
     if (m.drops) out.push(...m.drops);
-    else if (Math.random() < d.drop) {
+    else if (!m.minion && Math.random() < d.drop) {
       out.push(makeStack(rng, rollItem(rng, this.run.floor, { minRarity: d.boss ? 2 : d.hp > 200 ? 1 : 0, bias: d.boss ? 1 : 0 })));
       if (d.boss && this.run.floor !== MAX_FLOOR) out.push(makeStack(rng, rollItem(rng, this.run.floor, { minRarity: 1, bias: 0.5 })));
     }
@@ -367,7 +381,7 @@ export class Game {
       const sd = this.data.stairs, door = w.doorAt(sd.doorX, sd.doorY);
       if (!door || door.open) consider('stairs', null, w.stairs.x, w.stairs.z, 4.6, 'Descend the stairs', 0.15);
     }
-    if (w.ring && w.ring.visible) consider('ring', null, w.ring.x, w.ring.z, 3.6, 'Take the Elden Ring', -1);
+    if (w.ring && w.ring.visible) consider('ring', null, w.ring.x, w.ring.z, 3.6, 'Take the Madness Ring', -1);
     return best;
   }
   interact(it) {
@@ -455,7 +469,7 @@ export class Game {
     e.classList.remove('hidden'); e.style.background = 'rgba(255,240,200,0)'; e.style.transition = 'background 2.4s'; t.ending('', false);
     await sleep(60); e.style.background = 'rgba(255,240,200,1)';
     await sleep(2600); e.style.transition = 'background 1.6s'; e.style.background = '#000';
-    const lines = ['You hold the Elden Ring.', 'It is warm. It hums. It knows your name.', 'It was never a prize. It was a door.', 'The ring tightens.', 'And the dungeon exhales.'];
+    const lines = ['You hold the Madness Ring.', 'It is warm. It hums. It knows your name.', 'It was never a prize. It was a door.', 'The ring tightens.', 'And the dungeon exhales.'];
     for (const l of lines) { t.ending(l, true); await sleep(2900); t.ending(l, false); await sleep(900); }
     this.audio.play('teleport');
     t.ending('The abyss begins again.', true); await sleep(3200); t.ending('', false); await sleep(900);
@@ -522,7 +536,7 @@ export class Game {
     // light
     const lp = p.lightParams(), fl = 0.93 + 0.07 * Math.sin(this.time * 13) * Math.sin(this.time * 7.1);
     const dead = p.fuel <= 0 && !(p.buffs.torch > 0), flick = p.flicker > 0 ? 0.15 : 1;
-    w.pLight.intensity = (dead ? 1.5 : lp.intensity * fl * flick * (p.status.dim > 0 ? 0.5 : 1)) * this.settings.brightness; w.pLight.distance = this.data.final ? 24 : lp.distance;
+    w.pLight.intensity = (dead ? 1.5 : lp.intensity * fl * flick * (p.status.dim > 0 ? 0.5 : 1) * (this.data.final ? 1 : (tierFor(this.run.floor).dark ? 1 - tierFor(this.run.floor).dark * 0.45 : 1))) * this.settings.brightness; w.pLight.distance = this.data.final ? 24 : lp.distance;
     w.pLight.color.setHex(p.buffs.torch > 0 ? 0xffb060 : 0xffc88a);
     this.ui.updateHud(dt);
   }

@@ -3,7 +3,7 @@
 // stairs (behind a gate) -> optional vault (locked) + secret room (hidden door) -> doors, chests,
 // traps, props and monsters. Every floor is validated for solvability; if invalid it is regenerated.
 import { RNG, hash } from './rng.js';
-import { T, TS, MAX_FLOOR } from './config.js';
+import { T, TS, MAX_FLOOR, tierFor } from './config.js';
 import { rollChest, rollItem, makeStack } from './items.js';
 import { BEST_TYPES, bestWeight } from './bestiary-data.js';
 
@@ -253,7 +253,7 @@ function buildFloor(runSeed, floor, attempt) {
   // ---- 11. traps ----
   const traps = [];
   if (floor >= 3) {
-    const nTr = Math.min(Math.round((2 + Math.floor(floor / 4)) * 1.8), 24);
+    const nTr = Math.min(Math.round((2 + Math.floor(floor / 4)) * 1.8 * (tierFor(floor).traps || 1)), 30);
     const cand = openTiles.filter(o => o.d >= 6 && !inRoom(o.x, o.y));
     rng.shuffle(cand);
     for (const c of cand) {
@@ -293,7 +293,7 @@ function buildFloor(runSeed, floor, attempt) {
   for (let i = 0; i < (3 + floor / 8) * 2; i++) { const o = pickOpen(3); if (o) props.push({ k: 'gear', x: wc(o.x) + rng.range(-1, 1), z: wc(o.y) + rng.range(-1, 1), r: rng.range(0, 6.28) }); }
 
   // ---- 13. monsters ----
-  const budget = Math.min(Math.round((4 + floor * 0.34 + (floor > 20 ? 3 : 0)) * 2.1), 40);   // more monsters every floor
+  const budget = Math.min(Math.round((4 + floor * 0.34 + (floor > 20 ? 3 : 0)) * 2.1 * (tierFor(floor).mons || 1)), 48);   // more monsters every floor
   const minD = floor < 4 ? 10 : 13;
   const sepOK = (x, y) => spawns.every(s => Math.hypot(s.x - x, s.y - y) >= 5);
   if (guardianFloor && !stairs.noGate) {

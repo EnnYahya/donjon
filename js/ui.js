@@ -1,7 +1,7 @@
 // DOM user interface: HUD, menus, inventory, death screen.
 import { ITEMS } from './items.js';
 import { RARITY } from './items.js';
-import { MAX_FLOOR, tierFor } from './config.js';
+import { MAX_FLOOR, tierFor, floorName } from './config.js';
 import { LV_CAP } from './player.js';
 
 const $ = (id) => document.getElementById(id);
@@ -80,7 +80,7 @@ export class UI {
     g.save(); g.translate(px, py); g.rotate(-p.yaw); g.fillStyle = '#ffd060'; g.beginPath(); g.moveTo(0, -cs * 0.9); g.lineTo(cs * 0.6, cs * 0.6); g.lineTo(-cs * 0.6, cs * 0.6); g.closePath(); g.fill(); g.restore();
   }
   setFloor(f) {
-    this.el.floorLabel.textContent = `FLOOR ${f} / ${MAX_FLOOR}`; this.el.tierLabel.textContent = tierFor(f).name;
+    this.el.floorLabel.textContent = `FLOOR ${f} / ${MAX_FLOOR}`; this.el.tierLabel.textContent = floorName(f) + ' · ' + tierFor(f).name;
   }
 
   // ---------- inventory

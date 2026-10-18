@@ -1,7 +1,7 @@
 // Monsters: definitions, procedural 3D bodies, AI state machine and the manager.
 // States: idle(patrol) -> investigate(noise) -> chase -> attack -> search -> return/idle.
 import * as THREE from 'three';
-import { TS, T, scaling, tierIndex } from './config.js';
+import { TS, T, scaling, tierIndex, tierFor } from './config.js';
 import { Pathfinder, losClear } from './pathfinding.js';
 import { RNG, hash } from './rng.js';
 import { rollItem, makeStack } from './items.js';
@@ -19,7 +19,7 @@ export const DEFS = {
   warden:   { name: 'The Warden', hp: 230, dmg: 38, patrol: 1.1, chase: 2.9, sight: 15, hear: 1.2, range: 2.6, wind: 1.05, rec: 0.9, cd: 1.7, r: 0.6, h: 2.4, fov: 0.2, arm: 0.7, drop: 0.7 },
   shadow:   { name: 'The Shadow', hp: 40, dmg: 20, patrol: 0, chase: 7, sight: 22, hear: 0.5, range: 1.8, wind: 0.3, rec: 0.4, cd: 4, r: 0.4, h: 2.0, fov: -1, drop: 0 },
   guardian: { name: 'Floor Guardian', hp: 520, dmg: 42, patrol: 1.0, chase: 3.2, sight: 18, hear: 1.2, range: 3.3, wind: 1.0, rec: 0.9, cd: 1.7, r: 0.95, h: 3.6, fov: 0.0, arm: 0.8, boss: true, drop: 1 },
-  final:    { name: 'The Elden Guardian', hp: 1700, dmg: 48, patrol: 0, chase: 3.5, sight: 40, hear: 2, range: 5.2, wind: 0.95, rec: 0.9, cd: 1.5, r: 1.5, h: 6, fov: -1, arm: 0.85, boss: true, orbs: true, drop: 0 },
+  final:    { name: 'The Ring Keeper', hp: 1700, dmg: 48, patrol: 0, chase: 3.5, sight: 40, hear: 2, range: 5.2, wind: 0.95, rec: 0.9, cd: 1.5, r: 1.5, h: 6, fov: -1, arm: 0.85, boss: true, orbs: true, drop: 0 },
 };
 
 const GUARD_EYES = [0xff8020, 0x60c0ff, 0xff3030, 0x80ff40, 0xc040ff, 0xffd060];
@@ -108,7 +108,7 @@ export class Monster {
     this.sys = sys; this.type = type; this.def = DEFS[type];
     const sc = scaling(sys.floor, sys.cycle);
     this.maxHp = this.def.hp * sc.hp * (type === 'final' ? 1 : 1); this.hp = this.maxHp;
-    this.dmg = this.def.dmg * sc.dmg; this.spd = Math.min(sc.spd, 1.18);
+    this.dmg = this.def.dmg * sc.dmg; this.spd = Math.min(sc.spd + (tierFor(sys.floor).spd || 0), 1.26);
     this.x = x; this.z = z; this.home = { x, z }; this.yaw = sys.rng.range(0, 6.28);
     this.state = o.dormant ? 'dormant' : 'idle'; this.guard = !!o.guard; this.mandatory = !!o.mandatory;
     this.mats = []; this.dead = false; this.t = Math.random() * 10;
@@ -204,6 +204,7 @@ export class Monster {
   }
 
   damage(amount, game, o = {}) {
+    if (this.vanished > 0) return 0;
     if (this.dead || this.state === 'dormant' || this.state === 'intro' && this.type === 'final') return 0;
     let a = amount * (this.def.arm || 1);
     if (this.stun > 0) a *= 1.5;
@@ -215,7 +216,7 @@ export class Monster {
     const unaware = ['idle', 'investigate', 'search', 'return', 'ambush'].includes(this.state);
     if (unaware && this.type !== 'shadow' && !this.def.boss) { a *= o.dagger ? 3 : 2; game.ui.toast('Backstab!', '#e8c060'); }
     this.hp -= a; this.flash = 0.14;
-    if (!this.def.boss && this.state !== 'attack' && (o.stagger || a >= this.maxHp * 0.22)) this.stagT = o.stagger ? 0.55 : 0.35;
+    if (!this.def.boss && !this.enraged && this.state !== 'attack' && (o.stagger || a >= this.maxHp * 0.22)) this.stagT = o.stagger ? 0.55 : 0.35;
     if (!this.aware && this.type !== 'shadow') this.startChase(game.player.x, game.player.z);
     game.audio.voice(this.type, 'hurt', this);
     if (this.hp <= 0) this.die(game);
@@ -223,7 +224,7 @@ export class Monster {
   }
   die(game) {
     this.dead = true; this.state = 'dead'; this.deadT = 0; game.audio.voice(this.type, 'die', this);
-    game.onKill(this);
+    game.onKill(this); if (BEST.DEATH[this.type]) BEST.DEATH[this.type](this, game);
     if (this.body.eyeMat) this.body.eyeMat.color.setHex(0x000000);
     if (this.type === 'shadow') { this.group.visible = false; return; }
   }
@@ -588,6 +589,9 @@ export class MonsterSys {
       const x = (s.x + 0.5) * TS, z = (s.y + 0.5) * TS;
       this.list.push(new Monster(this, s.type, x, z, { guard: s.guard, mandatory: s.mandatory, dormant: s.type === 'final' }));
     }
+  }
+  spawn(type, x, z, o = {}) {
+    const m = new Monster(this, type, x, z, o); m.minion = !!o.minion; this.list.push(m); return m;
   }
   spawnMimic(chest) {
     const m = new Monster(this, 'mimic', chest.x, chest.z, { chase: true, drops: chest.contents });

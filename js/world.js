@@ -302,9 +302,10 @@ export class World {
     }
     // the ring (hidden until the guardian falls)
     const ring = new THREE.Group(); ring.position.set(f.ring.x, 3.4, f.ring.z);
-    ring.add(new THREE.Mesh(new THREE.TorusGeometry(0.7, 0.09, 12, 36), gold));
-    const sp = this.glowSprite(0xffcc50, 4); ring.add(sp);
-    const rl = new THREE.PointLight(0xffc860, 80, 22, 2); ring.add(rl);
+    ring.add(new THREE.Mesh(new THREE.TorusGeometry(0.7, 0.09, 12, 36), new THREE.MeshStandardMaterial({ color: 0xb020a0, emissive: 0x801070, emissiveIntensity: 1.2, metalness: 0.8, roughness: 0.3 })));
+    ring.add(new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.04, 8, 28), new THREE.MeshBasicMaterial({ color: 0xff60e0 })));
+    const sp = this.glowSprite(0xff40d0, 4); ring.add(sp);
+    const rl = new THREE.PointLight(0xff50d0, 80, 22, 2); ring.add(rl);
     ring.visible = false; this.group.add(ring);
     this.ring = { group: ring, x: f.ring.x, z: f.ring.z, visible: false, light: rl };
     this.pLight.distance = 22;

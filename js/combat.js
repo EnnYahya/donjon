@@ -131,7 +131,7 @@ export class Combat {
       const o = this.orbs[i]; o.life -= dt; let dead = o.life <= 0;
       o.x += o.dx * o.sp * dt; o.z += o.dz * o.sp * dt;
       if (w.opaqueAt(o.x, o.z)) dead = true;
-      if (Math.hypot(o.x - p.x, o.z - p.z) < 0.7 && Math.abs(o.y - (p.eye - 0.4)) < 1.4) { p.hurt(o.dmg, { x: o.x - o.dx, z: o.z - o.dz }, { by: 'a ward of the Elden Guardian' }); dead = true; }
+      if (Math.hypot(o.x - p.x, o.z - p.z) < 0.7 && Math.abs(o.y - (p.eye - 0.4)) < 1.4) { p.hurt(o.dmg, { x: o.x - o.dx, z: o.z - o.dz }, { by: 'a ward of the Ring Keeper' }); dead = true; }
       o.mesh.position.set(o.x, o.y + Math.sin(g.time * 8 + i) * 0.1, o.z);
       if (dead) { o.mesh.removeFromParent(); this.orbs.splice(i, 1); }
     }
