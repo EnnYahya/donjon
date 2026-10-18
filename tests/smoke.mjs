@@ -56,7 +56,8 @@ guard('idle sim', () => g.stepSim(4));
 ok(g.player.hp > 0, 'player alive after idle');
 
 // ---------- walk all 50 floors, exercising every system ----------
-const types = ['hollow', 'stalker', 'blind', 'warden', 'shadow', 'guardian', 'mimic'];
+import { BEST_TYPES } from '../js/bestiary-data.js';
+const types = ['hollow', 'stalker', 'blind', 'warden', 'shadow', 'guardian', 'mimic', ...BEST_TYPES];
 for (let f = 1; f <= 50; f++) {
   guard('loadFloor ' + f, () => {
     g.loadFloor(f); g.god = true;
@@ -131,6 +132,44 @@ guard('attack patterns', () => {
   p.dead = false; p.hp = p.maxHp; g.state = 'playing';
 });
 
+// ---------- the 20 extra monsters: every one must attack and stay numerically sane (player NOT invulnerable) ----------
+guard('new monsters attack', () => {
+  g.loadFloor(33); g.god = false; const p = g.player, w = g.world; const M = g.monsters.list[0].constructor;
+  g.monsters.clear();
+  const tiles = g.monsters.openTiles, tile = tiles[Math.floor(tiles.length / 2)];
+  for (const t of BEST_TYPES) {
+    const m = new M(g.monsters, t, (tile[0] + 0.5) * TS, (tile[1] + 0.5) * TS, { chase: true }); g.monsters.list.push(m);
+    p.dead = false; p.hp = p.maxHp; p.iframes = 0; g.state = 'playing'; p.status = { poison: 0, bleed: 0, burn: 0, slow: 0, dim: 0 };
+    p.x = m.x + 3.5; p.z = m.z; if (w.collides(p.x, p.z, 0.4)) p.x = m.x - 3.5; if (w.collides(p.x, p.z, 0.4)) { p.x = m.x; p.z = m.z + 3.5; }
+    let attacked = false, hurt = false, kinds = new Set();
+    for (let i = 0; i < 420 && !p.dead; i++) { m.cdT = Math.min(m.cdT, 0.2); p.iframes = 0; if (m.state === 'ambush') m.state = 'chase'; g.tick(1 / 30, true); if (m.state === 'attack' && m.atk) { attacked = true; kinds.add(m.atk.kind); } if (p.hp < p.maxHp) hurt = true; }
+    ok(attacked || m.def.ambush, t + ' attacks (' + [...kinds].join(',') + ')');
+    ok(Number.isFinite(m.x) && Number.isFinite(m.z) && Number.isFinite(p.x) && Number.isFinite(p.hp), t + ' keeps numbers finite');
+    m.dead = true; m.group.removeFromParent();
+  }
+  // statuses hurt over time and wear off
+  p.dead = false; p.hp = p.maxHp; p.addStatus('poison', 3, 'test'); const h0 = p.hp; for (let i = 0; i < 90; i++) g.tick(1 / 30, true); ok(p.hp < h0, 'poison drains health'); ok(p.status.poison <= 0.2, 'poison wears off');
+  p.dead = false; p.hp = p.maxHp; g.state = 'playing';
+});
+
+// ---------- level system ----------
+guard('levels', () => {
+  g.loadFloor(2); g.god = false; const p = g.player; p.dead = false; p.lv = { atk: 0, def: 0, spd: 0, vig: 0 }; p.points = 0; p.recalc();
+  const M = g.monsters.list[0] ? g.monsters.list[0].constructor : null;
+  ok(!p.spend('atk'), 'cannot spend without points');
+  p.points = 50; const hp0 = p.maxHp;
+  for (let i = 0; i < 20; i++) p.spend('vig'); ok(p.lv.vig === 10, 'level cap is 10'); ok(p.maxHp === hp0 + 80, 'vigor adds health'); ok(p.maxStamina === 150, 'vigor adds stamina');
+  for (const k of ['atk', 'def', 'spd']) for (let i = 0; i < 12; i++) p.spend(k);
+  ok(p.lv.atk === 10 && p.lv.def === 10 && p.lv.spd === 10, 'all stats cap at 10'); ok(p.points === 50 - 40, 'points only spent up to the cap');
+  ok(g.combat.dmgMul() >= 1.4, 'attack raises damage');
+  // killing a monster gives points
+  const before = p.points, tile = g.monsters.openTiles[5];
+  const m = new g.monsters.list[0].constructor(g.monsters, 'hollow', (tile[0] + 0.5) * TS, (tile[1] + 0.5) * TS, {}); g.monsters.list.push(m);
+  m.hp = 1; m.damage(100, g, {}); ok(p.points === before + 1, 'a kill gives a level point');
+  g.saveRunState(); const saved = JSON.parse(localStorage.getItem('abyss_run_v1')); ok(saved && saved.lv && saved.lv.vig === 10 && saved.points === p.points, 'levels are saved');
+  p.lv = { atk: 0, def: 0, spd: 0, vig: 0 }; p.points = 0; p.recalc();
+});
+
 // ---------- jump scares, mimic disguise, keys ----------
 guard('scares', () => {
   g.loadFloor(15); g.god = true; g.settings.scares = 'many'; const p = g.player, S = g.scares;
@@ -138,7 +177,7 @@ guard('scares', () => {
   for (const k of ['rush', 'peek', 'vanish']) { const s = S.findSpot(3, 14, false) || { x: p.x + 4, z: p.z }; S.spawnPhantom(s.x, s.z, k); for (let i = 0; i < 120; i++) S.update(1 / 30); S.removePhantom(); }
   for (let i = 0; i < 40; i++) S.bigScare();
   for (let i = 0; i < 300; i++) g.tick(1 / 30, true);
-  S.flash(100); S.onDoor({ wx: p.x + 2, wz: p.z, kind: 'wood' }); S.onChest({}); S.onRemains(); S.ambient(); S.update(1);
+  S.onDoor({ wx: p.x + 2, wz: p.z, kind: 'wood' }); S.onChest({}); S.onRemains(); S.ambient(); S.update(1);
   g.settings.scares = 'off'; S.next = 0; S.update(1); g.settings.scares = 'many'; S.stop();
   ok(true, 'scares run without errors');
   // a mimic chest is built from the same parts as a real one, and opens like one before it bites
