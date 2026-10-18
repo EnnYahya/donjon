@@ -59,7 +59,9 @@ Use Chrome, Edge or Firefox on a desktop computer with a mouse and keyboard.
 - **Monsters hunt by sight and sound.** Walking is quiet. Sprinting, fighting and opening gates are loud. Crouching is quiet.
 - Hitting an unaware monster is a **backstab** (x2 damage, x3 with a dagger).
 - The lantern burns down. Oil and torches are limited. In the dark, monsters see you less well, and so do you.
-- **Jump scares**: phantoms that rush you, lights that die, footsteps behind you, faces that flash. They never hurt, but they will make you jump. Settings → Jump scares (Many / Some / Off).
+- **Level up**: every kill gives level points (1 for normal monsters, more for tough ones). Press Tab and spend them on Attack, Defense, Speed or Vigor. Each stat stops at level 10, so nobody becomes unstoppable. Levels are kept for the whole run (and lost when you die).
+- **Status effects**: poison, bleeding, burning, slowed and a fading lantern can all be inflicted by monsters.
+- **Jump scares**: phantoms that rush you, lights that die, footsteps behind you. They never hurt, but they will make you jump. Settings → Jump scares (Many / Some / Off).
 - Some chests are **Mimics**, and they look exactly like real chests. Some chests are trapped (they click first: step away). Pressure plates click before they fire.
 - Scratching sounds and scratch marks hint at secret rooms. Walk up to the wall and push it.
 - Floors 10, 20, 30, 40 have a **Floor Guardian** blocking the stairs. Floors 5, 15, 25, 35, 45 have an optional one guarding good loot.
@@ -101,7 +103,10 @@ js/rng.js             seeded random number generator
 js/dungeon.js         procedural floor generation + solvability validation (pure logic)
 js/world.js           turns a floor grid into 3D geometry, lights, doors, collision
 js/textures.js        procedural canvas textures (stone, wood, blood, runes ...)
-js/scares.js          jump-scare director (phantoms, face flash, sounds)
+js/scares.js          jump-scare director (phantoms, sounds)
+js/bestiary.js        the 20 extra monsters: bodies, AI, attacks
+js/bestiary-data.js   stats and spawn rules of the extra monsters
+js/hazards.js         projectiles, poison/fire pools, shockwaves
 js/geometry.js        rounded / rough-hewn blocks and the chest model
 js/player.js          first-person movement, stamina, noise, light, damage
 js/monsters.js        all monsters, AI state machine, 3D bodies, boss attacks

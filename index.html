@@ -10,7 +10,6 @@
 <canvas id="gl"></canvas>
 <div id="vignette"></div>
 <div id="hurt"></div>
-<div id="scare"><canvas id="scareFace" width="512" height="512"></canvas></div>
 <div id="fade"></div>
 
 <!-- HUD -->
@@ -30,6 +29,7 @@
     <div id="buffs"></div>
   </div>
   <div id="compass" class="hidden"><div id="compassArrow">&#9650;</div><div id="compassDist"></div><small>stairs</small></div>
+  <div id="pointsHud" class="hidden"></div>
   <div id="prompt"></div>
   <div id="toasts"></div>
   <div id="bossBar" class="hidden"><div id="bossName"></div><div class="bar boss"><i id="bossFill"></i></div></div>
@@ -138,9 +138,9 @@
 <div id="credits" class="screen hidden">
   <div class="panel center">
     <h2>Credits</h2>
-    <p>Abyss of the Elden Ring<br>Welcom the my Abyss</p>
-    <p>Be cerful it s scary</p>
-    <p class="meta">bouhouhouhou</p>
+    <p>Abyss of the Elden Ring<br>Built with HTML5, CSS3, JavaScript, Three.js (WebGL) and the Web Audio API.</p>
+    <p>All textures, models and sounds are generated procedurally in code.</p>
+    <p class="meta">Three.js is released under the MIT License.</p>
     <p class="credit">nekomen was here</p>
     <button id="bCredBack">Back</button>
   </div>
@@ -169,6 +169,7 @@
         <div id="eqCharm" class="eq" data-slot="charm"></div>
         <h3>Keys</h3><div id="invKeys" class="meta"></div>
         <h3>Status</h3><div id="invStats" class="meta"></div>
+        <h3>Level up <small id="lvPts"></small></h3><div id="lvPanel"></div>
       </div>
       <div class="slots" id="slots"></div>
       <div class="detail" id="detail"><p class="meta">Select an item.</p></div>
